@@ -435,3 +435,188 @@ products_3nf ||--o{ order_items_3nf
 
 @enduml
 ```
+
+## Часть 3. OLTP-запросы
+
+Для нормализованной схемы были написаны типовые OLTP-запросы.
+
+Запросы находятся в файле:
+
+```text
+sql/04_oltp_queries.sql
+```
+
+Результаты `EXPLAIN ANALYZE` сохранены в файле:
+
+```text
+checks/explain_before_idx.txt
+```
+
+### 1. Создание заказа
+
+Создание заказа выполняется в транзакции.  
+Сначала товар проверяется и блокируется через `SELECT ... FOR UPDATE`, затем добавляется запись в `orders` и товарная позиция в `order_items`.
+
+```sql
+BEGIN;
+
+SELECT product_id, name, price
+FROM products
+WHERE product_id = 8
+FOR UPDATE;
+
+INSERT INTO orders (
+    order_id,
+    customer_id,
+    address_id,
+    order_date,
+    status,
+    total_amount
+)
+VALUES (
+    999999,
+    1,
+    1,
+    CURRENT_DATE,
+    'new',
+    3000
+);
+
+INSERT INTO order_items (
+    order_id,
+    product_id,
+    quantity,
+    price_at_order
+)
+SELECT
+    999999,
+    product_id,
+    2,
+    price
+FROM products
+WHERE product_id = 8;
+
+ROLLBACK;
+```
+
+Основные результаты:
+
+| Операция | План | Execution Time |
+|---|---|---:|
+| Проверка товара `SELECT ... FOR UPDATE` | `LockRows`, `Index Scan using products_pkey` | 1.265 ms |
+| Добавление заказа | `Insert on orders` | 8.919 ms |
+| Добавление позиции заказа | `Insert on order_items`, `Index Scan using products_pkey` | 1.971 ms |
+
+### 2. Обновление статуса заказа
+
+```sql
+UPDATE orders
+SET status = 'shipped'
+WHERE order_id = 1;
+```
+
+Запрос обновляет статус одного заказа.
+
+Результат `EXPLAIN ANALYZE`:
+
+| План | Что означает | Execution Time |
+|---|---|---:|
+| `Index Scan using orders_pkey` | заказ найден по первичному ключу `order_id` | 1.670 ms |
+
+### 3. Получение заказа
+
+Для получения заказа используется соединение четырёх таблиц:
+
+- `orders`;
+- `customers`;
+- `order_items`;
+- `products`.
+
+```sql
+SELECT
+    o.order_id,
+    o.order_date,
+    o.status,
+    o.total_amount,
+    c.name AS customer_name,
+    c.email AS customer_email,
+    p.name AS product_name,
+    oi.quantity,
+    oi.price_at_order
+FROM orders o
+JOIN customers c
+    ON c.customer_id = o.customer_id
+JOIN order_items oi
+    ON oi.order_id = o.order_id
+JOIN products p
+    ON p.product_id = oi.product_id
+WHERE o.order_id = 1;
+```
+
+Результат `EXPLAIN ANALYZE`:
+
+| План | Что означает | Execution Time |
+|---|---|---:|
+| `Nested Loop`, `Index Scan using orders_pkey`, `customers_pkey`, `order_items_pkey`, `products_pkey` | PostgreSQL находит заказ по `order_id` и через индексы получает клиента и товары | 0.150 ms |
+
+### 4. Отчёт «топ-10 товаров»
+
+```sql
+SELECT
+    p.product_id,
+    p.name AS product_name,
+    SUM(oi.quantity) AS total_sold,
+    SUM(oi.quantity * oi.price_at_order) AS total_revenue
+FROM order_items oi
+JOIN products p
+    ON p.product_id = oi.product_id
+GROUP BY
+    p.product_id,
+    p.name
+ORDER BY total_sold DESC
+LIMIT 10;
+```
+
+Запрос считает количество проданных товаров и выручку по каждому товару.
+
+Результат `EXPLAIN ANALYZE`:
+
+| План | Что означает | Execution Time |
+|---|---|---:|
+| `Hash Join`, `HashAggregate`, `Sort`, `Limit` | таблицы соединяются, данные группируются по товару, сортируются и ограничиваются топ-10 | 2.890 ms |
+
+### 5. Поиск клиента по email
+
+```sql
+SELECT
+    customer_id,
+    name,
+    email,
+    phone
+FROM customers
+WHERE email = 'ivanov@example.com';
+```
+
+Результат `EXPLAIN ANALYZE`:
+
+| План | Что означает | Execution Time |
+|---|---|---:|
+| `Index Scan using customers_email_key` | используется индекс, созданный автоматически из-за `UNIQUE` на поле `email` | 0.380 ms |
+
+### 6. Поиск клиента по подстроке имени
+
+```sql
+SELECT
+    customer_id,
+    name,
+    email,
+    phone
+FROM customers
+WHERE name ILIKE '%Иван%';
+```
+
+Результат `EXPLAIN ANALYZE`:
+
+| План | Что означает | Execution Time |
+|---|---|---:|
+| `Seq Scan on customers` | выполняется последовательный просмотр таблицы, так как обычного индекса для поиска по подстроке пока нет | 0.278 ms |
