@@ -247,3 +247,129 @@ LIMIT 10;
 
 Данные товара также больше не дублируются в каждой позиции заказа.  
 Они хранятся один раз в `products_2nf`, а таблица `order_items_2nf` ссылается на товар через `product_id`.
+
+### 3NF
+
+На третьем шаге были выделены дополнительные сущности:
+
+- `addresses` — адреса доставки;
+- `categories` — категории товаров;
+- `customers` — клиенты;
+- `products` — товары;
+- `orders` — заказы;
+- `order_items` — товары внутри заказа.
+
+После 2NF адрес доставки всё ещё хранился прямо в таблице заказов.  
+Так как один и тот же адрес может повторяться в нескольких заказах, адреса были вынесены в отдельную таблицу `addresses`.
+
+Также была добавлена таблица `categories`, так как товары относятся к разным категориям.  
+Теперь в таблице `products` хранится не название категории, а ссылка на неё через `category_id`.
+
+Проверка количества строк:
+
+```sql
+SELECT 'customers' AS table_name, COUNT(*) AS rows_count FROM customers
+UNION ALL
+SELECT 'addresses' AS table_name, COUNT(*) AS rows_count FROM addresses
+UNION ALL
+SELECT 'categories' AS table_name, COUNT(*) AS rows_count FROM categories
+UNION ALL
+SELECT 'products' AS table_name, COUNT(*) AS rows_count FROM products
+UNION ALL
+SELECT 'orders' AS table_name, COUNT(*) AS rows_count FROM orders
+UNION ALL
+SELECT 'order_items' AS table_name, COUNT(*) AS rows_count FROM order_items;
+```
+
+Результат:
+
+| table_name | rows_count |
+|---|---:|
+| customers | 10 |
+| addresses | 80 |
+| categories | 3 |
+| products | 10 |
+| orders | 1200 |
+| order_items | 3098 |
+
+Пример данных из `addresses`:
+
+```sql
+SELECT address_id, customer_id, address
+FROM addresses
+ORDER BY address_id
+LIMIT 10;
+```
+
+| address_id | customer_id | address |
+|---:|---:|---|
+| 1 | 1 | Екатеринбург, ул. Малышева, д. 44 |
+| 2 | 1 | Казань, ул. Баумана, д. 14 |
+| 3 | 1 | Москва, ул. Тверская, д. 7 |
+| 4 | 1 | Нижний Новгород, ул. Большая Покровская, д. 18 |
+| 5 | 1 | Новосибирск, Красный проспект, д. 31 |
+| 6 | 1 | Санкт-Петербург, Литейный проспект, д. 25 |
+| 7 | 1 | Санкт-Петербург, Московский проспект, д. 120 |
+| 8 | 1 | Санкт-Петербург, Невский проспект, д. 10 |
+| 9 | 2 | Екатеринбург, ул. Малышева, д. 44 |
+| 10 | 2 | Казань, ул. Баумана, д. 14 |
+
+Пример данных из `categories`:
+
+```sql
+SELECT category_id, name
+FROM categories
+ORDER BY category_id;
+```
+
+| category_id | name |
+|---:|---|
+| 1 | Компьютерная техника |
+| 2 | Периферия |
+| 3 | Аксессуары |
+
+Пример данных из `products`:
+
+```sql
+SELECT product_id, name, category_id, price
+FROM products
+ORDER BY product_id;
+```
+
+| product_id | name | category_id | price |
+|---:|---|---:|---:|
+| 1 | USB-хаб | 3 | 2500 |
+| 2 | Веб-камера | 2 | 4500 |
+| 3 | Внешний SSD | 1 | 12000 |
+| 4 | Кабель HDMI | 3 | 900 |
+| 5 | Клавиатура | 2 | 3500 |
+| 6 | Коврик | 3 | 500 |
+| 7 | Монитор | 1 | 22000 |
+| 8 | Мышь | 2 | 1500 |
+| 9 | Наушники | 2 | 6000 |
+| 10 | Ноутбук | 1 | 85000 |
+
+Пример данных из `orders`:
+
+```sql
+SELECT order_id, customer_id, address_id, order_date, status, total_amount
+FROM orders
+ORDER BY order_id
+LIMIT 5;
+```
+
+| order_id | customer_id | address_id | order_date | status | total_amount |
+|---:|---:|---:|---|---|---:|
+| 1 | 2 | 14 | 2024-08-28 | delivered | 52000 |
+| 2 | 7 | 54 | 2024-08-05 | delivered | 4500 |
+| 3 | 7 | 53 | 2024-03-22 | processing | 8000 |
+| 4 | 2 | 11 | 2024-07-25 | processing | 6900 |
+| 5 | 1 | 7 | 2024-12-21 | new | 2400 |
+
+В результате адрес доставки больше не хранится текстом в каждом заказе.  
+Теперь адрес хранится отдельно в таблице `addresses`, а заказ ссылается на него через `address_id`.
+
+Категории товаров также вынесены в отдельную таблицу `categories`.  
+Таблица `products` теперь хранит `category_id`, а не текстовое название категории.
+
+Итоговая схема после 3NF состоит из таблиц `customers`, `addresses`, `categories`, `products`, `orders` и `order_items`.
