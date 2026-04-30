@@ -1,0 +1,57 @@
+@startuml
+
+entity customers {
+  * customer_id : integer
+  --
+  name : text
+  email : text
+  phone : text
+}
+
+entity addresses {
+  * address_id : integer
+  --
+  customer_id : integer <<FK>>
+  address : text
+}
+
+entity categories {
+  * category_id : integer
+  --
+  name : text
+}
+
+entity products {
+  * product_id : integer
+  --
+  name : text
+  category_id : integer <<FK>>
+  price : numeric
+}
+
+entity orders {
+  * order_id : integer
+  --
+  customer_id : integer <<FK>>
+  address_id : integer <<FK>>
+  order_date : date
+  status : text
+  total_amount : numeric
+}
+
+entity order_items {
+  * order_id : integer <<FK>>
+  * product_id : integer <<FK>>
+  --
+  quantity : integer
+  price_at_order : numeric
+}
+
+customers ||--o{ addresses
+customers ||--o{ orders
+addresses ||--o{ orders
+categories ||--o{ products
+orders ||--o{ order_items
+products ||--o{ order_items
+
+@enduml

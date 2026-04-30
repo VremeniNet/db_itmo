@@ -373,3 +373,65 @@ LIMIT 5;
 Таблица `products` теперь хранит `category_id`, а не текстовое название категории.
 
 Итоговая схема после 3NF состоит из таблиц `customers`, `addresses`, `categories`, `products`, `orders` и `order_items`.
+
+ER-диаграмма итоговой схемы находится в файле `schema.puml`.
+
+```plantuml
+@startuml
+
+entity customers_3nf {
+  * customer_id : integer
+  --
+  customer_name : text
+  customer_email : text
+  customer_phone : text
+}
+
+entity addresses {
+  * address_id : integer
+  --
+  customer_id : integer
+  address : text
+}
+
+entity categories {
+  * category_id : integer
+  --
+  category_name : text
+}
+
+entity products_3nf {
+  * product_id : integer
+  --
+  product_name : text
+  category_id : integer
+  product_price : numeric
+}
+
+entity orders_3nf {
+  * order_id : integer
+  --
+  customer_id : integer
+  address_id : integer
+  order_date : date
+  status : text
+  total_amount : numeric
+}
+
+entity order_items_3nf {
+  * order_id : integer
+  * product_id : integer
+  --
+  quantity : integer
+  price_at_order : numeric
+}
+
+customers_3nf ||--o{ addresses
+customers_3nf ||--o{ orders_3nf
+addresses ||--o{ orders_3nf
+categories ||--o{ products_3nf
+orders_3nf ||--o{ order_items_3nf
+products_3nf ||--o{ order_items_3nf
+
+@enduml
+```
