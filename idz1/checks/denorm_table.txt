@@ -1,0 +1,43 @@
+SET
+SET
+ALTER TABLE
+ALTER TABLE
+UPDATE 3098
+                                                               QUERY PLAN                                                                
+-----------------------------------------------------------------------------------------------------------------------------------------
+ Nested Loop  (cost=0.43..26.42 rows=2 width=49) (actual time=0.133..0.149 rows=3 loops=1)
+   Buffers: shared hit=14 read=1
+   ->  Index Scan using order_items_pkey on order_items oi  (cost=0.28..10.07 rows=2 width=17) (actual time=0.059..0.069 rows=3 loops=1)
+         Index Cond: (order_id = 1)
+         Buffers: shared hit=9
+   ->  Index Scan using products_pkey on products p  (cost=0.15..8.17 rows=1 width=36) (actual time=0.024..0.024 rows=1 loops=3)
+         Index Cond: (product_id = oi.product_id)
+         Buffers: shared hit=5 read=1
+ Planning:
+   Buffers: shared hit=6
+ Planning Time: 0.903 ms
+ Execution Time: 0.785 ms
+
+                                                           QUERY PLAN                                                           
+--------------------------------------------------------------------------------------------------------------------------------
+ Index Scan using order_items_pkey on order_items  (cost=0.28..10.07 rows=2 width=49) (actual time=0.010..0.016 rows=3 loops=1)
+   Index Cond: (order_id = 1)
+   Buffers: shared hit=9
+ Planning:
+   Buffers: shared hit=2
+ Planning Time: 0.107 ms
+ Execution Time: 0.029 ms
+
+ order_id | product_id | product_name | quantity | price_at_order 
+----------+------------+--------------+----------+----------------
+        1 |          2 | Веб-камера   |        1 |           4500
+        1 |          5 | Клавиатура   |        1 |           3500
+        1 |          7 | Монитор      |        2 |          22000
+        2 |          8 | Мышь         |        3 |           1500
+        3 |          1 | USB-хаб      |        2 |           2500
+        3 |          8 | Мышь         |        2 |           1500
+        4 |          1 | USB-хаб      |        2 |           2500
+        4 |          4 | Кабель HDMI  |        1 |            900
+        4 |          6 | Коврик       |        2 |            500
+        5 |          4 | Кабель HDMI  |        1 |            900
+

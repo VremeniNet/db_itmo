@@ -715,6 +715,94 @@ LIMIT 10;
 REFRESH MATERIALIZED VIEW mv_monthly_sales;
 ```
 
+### 4.2. Денормализация в таблицу
+
+В качестве второго способа денормализации в таблицу `order_items` было добавлено избыточное поле `product_name`.
+
+```sql
+ALTER TABLE order_items
+ADD COLUMN product_name TEXT;
+
+UPDATE order_items oi
+SET product_name = p.name
+FROM products p
+WHERE p.product_id = oi.product_id;
+```
+
+До денормализации для получения названия товара требовался `JOIN` с таблицей `products`:
+
+```sql
+SELECT
+    oi.order_id,
+    oi.product_id,
+    p.name AS product_name,
+    oi.quantity,
+    oi.price_at_order
+FROM order_items oi
+JOIN products p
+    ON p.product_id = oi.product_id
+WHERE oi.order_id = 1;
+```
+
+После денормализации название товара можно получить напрямую из `order_items`:
+
+```sql
+SELECT
+    order_id,
+    product_id,
+    product_name,
+    quantity,
+    price_at_order
+FROM order_items
+WHERE order_id = 1;
+```
+
+Сравнение `EXPLAIN ANALYZE` сохранено в файле `checks/denorm_table.txt`.
+
+| Запрос | Что делает | Execution Time |
+|---|---|---:|
+| Запрос с `JOIN` | получает название товара из таблицы `products` | 0.785 ms |
+| Запрос без `JOIN` | читает `product_name` прямо из `order_items` | 0.029 ms |
+
+Пример данных из денормализованной таблицы `order_items`:
+
+```sql
+SELECT
+    order_id,
+    product_id,
+    product_name,
+    quantity,
+    price_at_order
+FROM order_items
+ORDER BY order_id, product_id
+LIMIT 10;
+```
+
+| order_id | product_id | product_name | quantity | price_at_order |
+|---:|---:|---|---:|---:|
+| 1 | 2 | Веб-камера | 1 | 4500 |
+| 1 | 5 | Клавиатура | 1 | 3500 |
+| 1 | 7 | Монитор | 2 | 22000 |
+| 2 | 8 | Мышь | 3 | 1500 |
+| 3 | 1 | USB-хаб | 2 | 2500 |
+| 3 | 8 | Мышь | 2 | 1500 |
+| 4 | 1 | USB-хаб | 2 | 2500 |
+| 4 | 4 | Кабель HDMI | 1 | 900 |
+| 4 | 6 | Коврик | 2 | 500 |
+| 5 | 4 | Кабель HDMI | 1 | 900 |
+
+Такой подход ускоряет чтение, потому что для получения названия товара больше не нужен `JOIN` с таблицей `products`.
+
+Минус этого подхода — дублирование данных.  
+Название товара теперь хранится в двух местах:
+
+- `products.name`;
+- `order_items.product_name`.
+
+Если название товара изменится в `products`, поле `product_name` в старых строках `order_items` само не обновится. Для синхронизации нужно использовать код приложения или триггер.
+
+При этом для истории заказов такое дублирование может быть полезным: `product_name` в `order_items` можно рассматривать как снимок названия товара на момент покупки.
+
 ## Часть 5. Индексы
 
 Для запросов из OLTP-части были добавлены индексы и проверены планы выполнения через `EXPLAIN ANALYZE`.
