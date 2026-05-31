@@ -620,3 +620,153 @@ WHERE name ILIKE '%Иван%';
 | План | Что означает | Execution Time |
 |---|---|---:|
 | `Seq Scan on customers` | выполняется последовательный просмотр таблицы, так как обычного индекса для поиска по подстроке пока нет | 0.278 ms |
+
+## Часть 5. Индексы
+
+Для запросов из OLTP-части были добавлены индексы и проверены планы выполнения через `EXPLAIN ANALYZE`.
+
+SQL-скрипт находится в файле:
+
+```text
+sql/05_indexes.sql
+```
+
+Результаты проверки сохранены в файлах:
+
+```text
+checks/explain_after_idx.txt
+checks/trgm_demo.txt
+```
+
+### Индекс по `order_items.product_id`
+
+Сначала был выполнен запрос поиска товарных позиций по конкретному товару:
+
+```sql
+SELECT
+    order_id,
+    product_id,
+    quantity,
+    price_at_order
+FROM order_items
+WHERE product_id = 8;
+```
+
+До создания индекса PostgreSQL выполнял последовательное чтение таблицы `order_items`.
+
+```text
+Seq Scan on order_items
+Execution Time: 0.507 ms
+```
+
+После этого был создан индекс:
+
+```sql
+CREATE INDEX idx_order_items_product_id
+ON order_items(product_id);
+```
+
+После создания индекса план выполнения изменился:
+
+```text
+Bitmap Index Scan on idx_order_items_product_id
+Bitmap Heap Scan on order_items
+Execution Time: 0.188 ms
+```
+
+Индекс позволил быстрее найти строки по `product_id`, потому что PostgreSQL больше не должен просматривать всю таблицу `order_items`.
+
+### Поиск клиента по email
+
+Для поиска клиента по email используется запрос:
+
+```sql
+SELECT
+    customer_id,
+    name,
+    email,
+    phone
+FROM customers
+WHERE email = 'ivanov@example.com';
+```
+
+Поле `email` в таблице `customers` объявлено как `UNIQUE`, поэтому PostgreSQL автоматически создаёт индекс для проверки уникальности и поиска по этому полю.
+
+### B-tree индекс по имени клиента
+
+Для поиска клиента по подстроке имени использовался запрос:
+
+```sql
+SELECT
+    customer_id,
+    name,
+    email,
+    phone
+FROM customers
+WHERE name ILIKE '%Иван%';
+```
+
+Был создан обычный B-tree индекс:
+
+```sql
+CREATE INDEX idx_customers_name_btree
+ON customers(name);
+```
+
+Однако для запроса вида `ILIKE '%Иван%'` такой индекс не помогает, потому что поиск идёт по подстроке в любой части значения.
+
+До создания B-tree индекса:
+
+```text
+Seq Scan on customers
+Execution Time: 0.076 ms
+```
+
+После создания B-tree индекса:
+
+```text
+Seq Scan on customers
+Execution Time: 0.076 ms
+```
+
+План выполнения не изменился: PostgreSQL всё равно использует последовательное чтение таблицы.
+
+### GIN-индекс с `pg_trgm`
+
+Для поиска по подстроке был создан GIN-индекс с расширением `pg_trgm`.
+
+```sql
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
+
+CREATE INDEX idx_customers_name_trgm
+ON customers
+USING GIN (name gin_trgm_ops);
+```
+
+После создания GIN-индекса запрос по подстроке может использовать индекс:
+
+```text
+Bitmap Index Scan on idx_customers_name_trgm
+Bitmap Heap Scan on customers
+Execution Time: 0.076 ms
+```
+
+Для демонстрации использования GIN-индекса в скрипте временно отключается последовательное чтение:
+
+```sql
+SET enable_seqscan = OFF;
+```
+
+После проверки оно включается обратно:
+
+```sql
+SET enable_seqscan = ON;
+```
+
+Это сделано потому, что таблица `customers` маленькая, и на маленьких таблицах PostgreSQL может выбирать последовательное чтение даже при наличии индекса.
+
+В результате:
+
+- индекс по `order_items.product_id` ускорил поиск товарных позиций по товару;
+- обычный B-tree индекс не подошёл для поиска `ILIKE '%Иван%'`;
+- GIN-индекс с `pg_trgm` подходит для поиска по подстроке.

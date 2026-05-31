@@ -1,0 +1,81 @@
+SET
+SET
+DROP INDEX
+DROP INDEX
+DROP INDEX
+                                                QUERY PLAN                                                 
+-----------------------------------------------------------------------------------------------------------
+ Seq Scan on order_items  (cost=0.00..58.73 rows=302 width=17) (actual time=0.022..0.389 rows=302 loops=1)
+   Filter: (product_id = 8)
+   Rows Removed by Filter: 2796
+   Buffers: shared hit=20
+ Planning:
+   Buffers: shared hit=72
+ Planning Time: 2.185 ms
+ Execution Time: 0.507 ms
+
+CREATE INDEX
+                                                              QUERY PLAN                                                               
+---------------------------------------------------------------------------------------------------------------------------------------
+ Bitmap Heap Scan on order_items  (cost=6.62..30.40 rows=302 width=17) (actual time=0.112..0.163 rows=302 loops=1)
+   Recheck Cond: (product_id = 8)
+   Heap Blocks: exact=20
+   Buffers: shared hit=20 read=3
+   ->  Bitmap Index Scan on idx_order_items_product_id  (cost=0.00..6.55 rows=302 width=0) (actual time=0.099..0.099 rows=302 loops=1)
+         Index Cond: (product_id = 8)
+         Buffers: shared read=3
+ Planning:
+   Buffers: shared hit=15 read=1
+ Planning Time: 1.521 ms
+ Execution Time: 0.188 ms
+
+                                             QUERY PLAN                                              
+-----------------------------------------------------------------------------------------------------
+ Seq Scan on customers  (cost=0.00..1.12 rows=1 width=100) (actual time=0.052..0.053 rows=1 loops=1)
+   Filter: (email = 'ivanov@example.com'::text)
+   Rows Removed by Filter: 9
+   Buffers: shared hit=1
+ Planning:
+   Buffers: shared hit=46
+ Planning Time: 2.792 ms
+ Execution Time: 0.067 ms
+
+                                             QUERY PLAN                                              
+-----------------------------------------------------------------------------------------------------
+ Seq Scan on customers  (cost=0.00..1.12 rows=1 width=100) (actual time=0.037..0.061 rows=1 loops=1)
+   Filter: (name ~~* '%Иван%'::text)
+   Rows Removed by Filter: 9
+   Buffers: shared hit=1
+ Planning Time: 0.135 ms
+ Execution Time: 0.076 ms
+
+CREATE INDEX
+                                             QUERY PLAN                                              
+-----------------------------------------------------------------------------------------------------
+ Seq Scan on customers  (cost=0.00..1.12 rows=1 width=100) (actual time=0.034..0.060 rows=1 loops=1)
+   Filter: (name ~~* '%Иван%'::text)
+   Rows Removed by Filter: 9
+   Buffers: shared hit=1
+ Planning:
+   Buffers: shared hit=21 read=1
+ Planning Time: 1.965 ms
+ Execution Time: 0.076 ms
+
+CREATE EXTENSION
+CREATE INDEX
+SET
+                                                           QUERY PLAN                                                            
+---------------------------------------------------------------------------------------------------------------------------------
+ Bitmap Heap Scan on customers  (cost=12.96..16.97 rows=1 width=100) (actual time=0.038..0.039 rows=1 loops=1)
+   Recheck Cond: (name ~~* '%Иван%'::text)
+   Heap Blocks: exact=1
+   Buffers: shared hit=4
+   ->  Bitmap Index Scan on idx_customers_name_trgm  (cost=0.00..12.96 rows=1 width=0) (actual time=0.017..0.017 rows=1 loops=1)
+         Index Cond: (name ~~* '%Иван%'::text)
+         Buffers: shared hit=3
+ Planning:
+   Buffers: shared hit=24
+ Planning Time: 1.920 ms
+ Execution Time: 0.076 ms
+
+SET
