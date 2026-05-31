@@ -38,3 +38,29 @@ idz2/
     ├── ttl_demo.txt
     ├── compression_stats.txt
     └── pg_vs_ch_comparison.txt
+```
+
+## Часть 1. Установка и начальная настройка
+
+ClickHouse запущен в Docker-контейнере `idz2-clickhouse`.
+
+Добавлены конфигурационные файлы:
+
+- `config/config.d/listen.xml` — настройка прослушивания на `0.0.0.0`;
+- `config/users.xml` — профиль `readonly` и пользователь `analyst`.
+
+Для пользователя `analyst` создан профиль только для чтения:
+
+```xml
+<readonly>1</readonly>
+```
+
+Проверено подключение от пользователей:
+
+* `default`;
+* `analyst`.
+
+Также проверено, что пользователь `analyst` не может выполнять команды изменения схемы, например `CREATE DATABASE`.
+
+Результаты проверки сохранены в файле `checks/connection_check.txt`.
+

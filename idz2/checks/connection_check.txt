@@ -1,0 +1,29 @@
+Проверка подключения ClickHouse
+
+1. Подключение пользователем default:
+
+Команда:
+docker exec -it idz2-clickhouse clickhouse-client --user default --query "SELECT version();"
+
+Результат:
+26.5.1.882
+
+
+2. Подключение пользователем analyst:
+
+Команда:
+docker exec -it idz2-clickhouse clickhouse-client --user analyst --password analyst --query "SELECT currentUser(), version();"
+
+Результат:
+analyst    26.5.1.882
+
+
+3. Проверка readonly-профиля:
+
+Команда:
+docker exec -it idz2-clickhouse clickhouse-client --user analyst --password analyst --query "CREATE DATABASE test_readonly;"
+
+Результат:
+Received exception from server (version 26.5.1):
+Code: 164. DB::Exception: Received from localhost:9000. DB::Exception: analyst: Cannot execute query in readonly mode. (READONLY)
+(query: CREATE DATABASE test_readonly;)
