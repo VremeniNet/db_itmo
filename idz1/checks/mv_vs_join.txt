@@ -1,0 +1,70 @@
+SET
+SET
+DROP MATERIALIZED VIEW
+                                                                  QUERY PLAN                                                                  
+----------------------------------------------------------------------------------------------------------------------------------------------
+ GroupAggregate  (cost=374.41..490.58 rows=3098 width=112) (actual time=9.859..11.274 rows=120 loops=1)
+   Group Key: (date_trunc('month'::text, (o.order_date)::timestamp with time zone)), p.name, c.name
+   Buffers: shared hit=28 read=10
+   ->  Sort  (cost=374.41..382.15 rows=3098 width=81) (actual time=8.825..8.978 rows=3098 loops=1)
+         Sort Key: (date_trunc('month'::text, (o.order_date)::timestamp with time zone)), p.name, c.name
+         Sort Method: quicksort  Memory: 341kB
+         Buffers: shared hit=28 read=10
+         ->  Hash Join  (cost=103.80..194.77 rows=3098 width=81) (actual time=2.092..5.310 rows=3098 loops=1)
+               Hash Cond: (p.category_id = c.category_id)
+               Buffers: shared hit=22 read=10
+               ->  Hash Join  (cost=65.22..132.55 rows=3098 width=49) (actual time=1.164..3.128 rows=3098 loops=1)
+                     Hash Cond: (oi.product_id = p.product_id)
+                     Buffers: shared hit=22 read=9
+                     ->  Hash Join  (cost=37.00..96.15 rows=3098 width=17) (actual time=0.840..2.145 rows=3098 loops=1)
+                           Hash Cond: (oi.order_id = o.order_id)
+                           Buffers: shared hit=22 read=8
+                           ->  Seq Scan on order_items oi  (cost=0.00..50.98 rows=3098 width=17) (actual time=0.013..0.330 rows=3098 loops=1)
+                                 Buffers: shared hit=20
+                           ->  Hash  (cost=22.00..22.00 rows=1200 width=8) (actual time=0.811..0.811 rows=1200 loops=1)
+                                 Buckets: 2048  Batches: 1  Memory Usage: 63kB
+                                 Buffers: shared hit=2 read=8
+                                 ->  Seq Scan on orders o  (cost=0.00..22.00 rows=1200 width=8) (actual time=0.008..0.605 rows=1200 loops=1)
+                                       Buffers: shared hit=2 read=8
+                     ->  Hash  (cost=18.10..18.10 rows=810 width=40) (actual time=0.315..0.316 rows=10 loops=1)
+                           Buckets: 1024  Batches: 1  Memory Usage: 9kB
+                           Buffers: shared read=1
+                           ->  Seq Scan on products p  (cost=0.00..18.10 rows=810 width=40) (actual time=0.303..0.305 rows=10 loops=1)
+                                 Buffers: shared read=1
+               ->  Hash  (cost=22.70..22.70 rows=1270 width=36) (actual time=0.383..0.383 rows=3 loops=1)
+                     Buckets: 2048  Batches: 1  Memory Usage: 17kB
+                     Buffers: shared read=1
+                     ->  Seq Scan on categories c  (cost=0.00..22.70 rows=1270 width=36) (actual time=0.372..0.372 rows=3 loops=1)
+                           Buffers: shared read=1
+ Planning:
+   Buffers: shared hit=298 read=18 dirtied=3
+ Planning Time: 41.545 ms
+ Execution Time: 13.118 ms
+
+SELECT 120
+                                                      QUERY PLAN                                                       
+-----------------------------------------------------------------------------------------------------------------------
+ Sort  (cost=42.42..43.87 rows=580 width=112) (actual time=0.198..0.203 rows=120 loops=1)
+   Sort Key: month, product_name
+   Sort Method: quicksort  Memory: 34kB
+   Buffers: shared hit=2
+   ->  Seq Scan on mv_monthly_sales  (cost=0.00..15.80 rows=580 width=112) (actual time=0.021..0.028 rows=120 loops=1)
+         Buffers: shared hit=2
+ Planning:
+   Buffers: shared hit=15
+ Planning Time: 0.954 ms
+ Execution Time: 0.228 ms
+
+         month          | product_name |    category_name     | total_qty | total_revenue 
+------------------------+--------------+----------------------+-----------+---------------
+ 2024-01-01 00:00:00+03 | USB-хаб      | Аксессуары           |        47 |        117500
+ 2024-01-01 00:00:00+03 | Веб-камера   | Периферия            |        44 |        198000
+ 2024-01-01 00:00:00+03 | Внешний SSD  | Компьютерная техника |        43 |        516000
+ 2024-01-01 00:00:00+03 | Кабель HDMI  | Аксессуары           |        31 |         27900
+ 2024-01-01 00:00:00+03 | Клавиатура   | Периферия            |        32 |        112000
+ 2024-01-01 00:00:00+03 | Коврик       | Аксессуары           |        36 |         18000
+ 2024-01-01 00:00:00+03 | Монитор      | Компьютерная техника |        61 |       1342000
+ 2024-01-01 00:00:00+03 | Мышь         | Периферия            |        39 |         58500
+ 2024-01-01 00:00:00+03 | Наушники     | Периферия            |        51 |        306000
+ 2024-01-01 00:00:00+03 | Ноутбук      | Компьютерная техника |        36 |       3060000
+

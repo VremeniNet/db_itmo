@@ -621,6 +621,100 @@ WHERE name ILIKE '%Иван%';
 |---|---|---:|
 | `Seq Scan on customers` | выполняется последовательный просмотр таблицы, так как обычного индекса для поиска по подстроке пока нет | 0.278 ms |
 
+## Часть 4. Денормализация
+
+### 4.1. Материализованное представление
+
+Для отчёта по продажам было создано материализованное представление `mv_monthly_sales`.
+
+Обычный запрос к нормализованной схеме соединяет таблицы `order_items`, `orders`, `products` и `categories`, после чего группирует данные по месяцу, товару и категории.
+
+```sql
+SELECT
+    date_trunc('month', o.order_date) AS month,
+    p.name AS product_name,
+    c.name AS category_name,
+    SUM(oi.quantity) AS total_qty,
+    SUM(oi.quantity * oi.price_at_order) AS total_revenue
+FROM order_items oi
+JOIN orders o
+    ON o.order_id = oi.order_id
+JOIN products p
+    ON p.product_id = oi.product_id
+JOIN categories c
+    ON c.category_id = p.category_id
+GROUP BY
+    date_trunc('month', o.order_date),
+    p.name,
+    c.name;
+```
+
+Материализованное представление хранит результат такого запроса заранее:
+
+```sql
+CREATE MATERIALIZED VIEW mv_monthly_sales AS
+SELECT
+    date_trunc('month', o.order_date) AS month,
+    p.name AS product_name,
+    c.name AS category_name,
+    SUM(oi.quantity) AS total_qty,
+    SUM(oi.quantity * oi.price_at_order) AS total_revenue
+FROM order_items oi
+JOIN orders o
+    ON o.order_id = oi.order_id
+JOIN products p
+    ON p.product_id = oi.product_id
+JOIN categories c
+    ON c.category_id = p.category_id
+GROUP BY
+    date_trunc('month', o.order_date),
+    p.name,
+    c.name;
+```
+
+Сравнение `EXPLAIN ANALYZE` сохранено в файле `checks/mv_vs_join.txt`.
+
+| Запрос | Что делает | Execution Time |
+|---|---|---:|
+| Запрос к нормализованным таблицам | выполняет `JOIN`, `GROUP BY` и агрегацию во время запроса | 13.118 ms |
+| Запрос к `mv_monthly_sales` | читает заранее посчитанный результат | 0.228 ms |
+
+Пример данных из `mv_monthly_sales`:
+
+```sql
+SELECT
+    month,
+    product_name,
+    category_name,
+    total_qty,
+    total_revenue
+FROM mv_monthly_sales
+ORDER BY
+    month,
+    product_name
+LIMIT 10;
+```
+
+| month | product_name | category_name | total_qty | total_revenue |
+|---|---|---|---:|---:|
+| 2024-01-01 00:00:00+03 | USB-хаб | Аксессуары | 47 | 117500 |
+| 2024-01-01 00:00:00+03 | Веб-камера | Периферия | 44 | 198000 |
+| 2024-01-01 00:00:00+03 | Внешний SSD | Компьютерная техника | 43 | 516000 |
+| 2024-01-01 00:00:00+03 | Кабель HDMI | Аксессуары | 31 | 27900 |
+| 2024-01-01 00:00:00+03 | Клавиатура | Периферия | 32 | 112000 |
+| 2024-01-01 00:00:00+03 | Коврик | Аксессуары | 36 | 18000 |
+| 2024-01-01 00:00:00+03 | Монитор | Компьютерная техника | 61 | 1342000 |
+| 2024-01-01 00:00:00+03 | Мышь | Периферия | 39 | 58500 |
+| 2024-01-01 00:00:00+03 | Наушники | Периферия | 51 | 306000 |
+| 2024-01-01 00:00:00+03 | Ноутбук | Компьютерная техника | 36 | 3060000 |
+
+Материализованное представление ускоряет чтение отчёта, потому что результат сложного запроса уже сохранён.  
+Минус такого подхода в том, что данные в materialized view не обновляются автоматически. После изменения исходных таблиц его нужно обновлять вручную:
+
+```sql
+REFRESH MATERIALIZED VIEW mv_monthly_sales;
+```
+
 ## Часть 5. Индексы
 
 Для запросов из OLTP-части были добавлены индексы и проверены планы выполнения через `EXPLAIN ANALYZE`.
