@@ -1,0 +1,17 @@
+﻿stage	rows_count
+before_ttl	5
+stage	partition	name	active	rows	size_on_disk
+before_ttl	202602	202602_1_1_0	1	3	1.76 KiB
+before_ttl	202606	202606_2_2_0	1	2	1.70 KiB
+stage	rows_count
+after_ttl	2
+stage	partition	name	active	rows	size_on_disk
+after_ttl	202602	202602_1_1_0	0	3	1.76 KiB
+after_ttl	202602	202602_1_1_0_3	0	0	2.03 KiB
+after_ttl	202602	202602_1_1_1_3	1	0	2.00 KiB
+after_ttl	202606	202606_2_2_0	0	2	1.70 KiB
+after_ttl	202606	202606_2_2_0_3	0	2	3.23 KiB
+after_ttl	202606	202606_2_2_1_3	1	2	3.23 KiB
+order_id	order_date	product_name	category	line_total	order_status
+900004	2026-06-03	USB hub	Accessories	2500	new
+900005	2026-06-03	Keyboard	Periphery	3500	new
