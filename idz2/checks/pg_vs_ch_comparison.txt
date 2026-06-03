@@ -1,0 +1,213 @@
+PostgreSQL vs ClickHouse comparison
+
+1. Data volume
+
+PostgreSQL IDZ-1:
+- database: idz1
+- database size: 11 MB
+- normalized schema
+- source data: 1200 orders
+- order_items rows after 3NF: 3098
+
+ClickHouse IDZ-2:
+- database: idz2
+- main table: orders_flat
+- table size on disk: 13.16 MiB
+- flat denormalized schema
+- rows: 1 000 000
+
+Conclusion:
+PostgreSQL was used as an OLTP database with a normalized 3NF schema.
+ClickHouse was used as an OLAP database with a flat denormalized table.
+
+
+2. Insert one row
+
+PostgreSQL:
+Query:
+INSERT INTO orders (...)
+VALUES (...);
+
+Result from IDZ-1:
+Execution Time: 8.919 ms
+
+ClickHouse:
+ClickHouse is optimized for batch inserts.
+In IDZ-2 data was loaded in batch mode:
+
+INSERT INTO idz2.orders_flat
+SELECT ...
+FROM numbers(1000000);
+
+Conclusion:
+PostgreSQL is better for transactional inserts of single rows.
+ClickHouse is better for batch loading large analytical datasets.
+
+
+3. Top-10 products by revenue
+
+PostgreSQL:
+Query from IDZ-1:
+SELECT
+    p.product_id,
+    p.name AS product_name,
+    SUM(oi.quantity) AS total_sold,
+    SUM(oi.quantity * oi.price_at_order) AS total_revenue
+FROM order_items oi
+JOIN products p
+    ON p.product_id = oi.product_id
+GROUP BY
+    p.product_id,
+    p.name
+ORDER BY total_sold DESC
+LIMIT 10;
+
+Execution Time: 2.890 ms
+Data volume: 3098 order_items rows
+
+ClickHouse:
+Query from IDZ-2:
+SELECT
+    product_id,
+    product_name,
+    category,
+    sum(quantity) AS total_qty,
+    sum(line_total) AS total_revenue
+FROM idz2.orders_flat
+GROUP BY
+    product_id,
+    product_name,
+    category
+ORDER BY total_revenue DESC
+LIMIT 10;
+
+Execution Time: 0.691 sec
+Data volume: 1 000 000 rows
+
+Conclusion:
+PostgreSQL query was fast on a small normalized dataset.
+ClickHouse processed a much larger flat dataset and is better suited for analytical scans and aggregations.
+
+
+4. JOIN 4 tables
+
+PostgreSQL:
+Query from IDZ-1 used JOIN between:
+- orders
+- customers
+- order_items
+- products
+
+Execution Time: 0.150 ms
+
+ClickHouse:
+JOIN is not needed for this scenario because orders_flat already contains:
+- order data
+- customer data
+- product data
+- category data
+- revenue data
+
+Conclusion:
+PostgreSQL uses JOINs naturally in a normalized OLTP schema.
+ClickHouse avoids JOINs in the main analytical table by storing data in denormalized form.
+
+
+5. Update order status
+
+PostgreSQL:
+Query:
+UPDATE orders
+SET status = 'shipped'
+WHERE order_id = 1;
+
+Execution Time: 1.670 ms
+
+ClickHouse:
+Row-by-row status update is not a typical ClickHouse operation.
+ClickHouse supports mutations, but they are heavier than OLTP updates and are not intended for frequent single-row changes.
+
+Conclusion:
+PostgreSQL is better for frequent transactional updates.
+ClickHouse is better for append-heavy analytical data.
+
+
+6. Disk size
+
+PostgreSQL:
+database idz1 size: 11 MB
+
+PostgreSQL table sizes:
+order_items        624 kB
+orders_raw         352 kB
+order_items_1nf    328 kB
+orders_1nf         328 kB
+order_items_2nf    288 kB
+orders_2nf         232 kB
+orders             168 kB
+addresses           80 kB
+customers           80 kB
+products_2nf        48 kB
+categories          48 kB
+products            48 kB
+customers_2nf       48 kB
+mv_monthly_sales    32 kB
+
+ClickHouse:
+orders_flat size on disk: 13.16 MiB
+orders_flat rows: 1 000 000
+
+Conclusion:
+ClickHouse stores 1 000 000 denormalized rows compactly because of columnar storage, compression, LowCardinality columns and ordering by analytical keys.
+
+
+7. Substring search
+
+PostgreSQL:
+Query from IDZ-1:
+SELECT
+    customer_id,
+    name,
+    email,
+    phone
+FROM customers
+WHERE name ILIKE '%Иван%';
+
+Execution Time: 0.278 ms
+Data volume: 10 customers
+
+ClickHouse:
+Query from IDZ-2:
+SELECT
+    customer_id,
+    customer_name,
+    customer_email,
+    count() AS rows_count,
+    sum(line_total) AS total_revenue
+FROM idz2.orders_flat
+WHERE positionCaseInsensitive(customer_email, 'ivanov') > 0
+GROUP BY
+    customer_id,
+    customer_name,
+    customer_email
+ORDER BY rows_count DESC;
+
+Execution Time: 0.115 sec
+Data volume: 1 000 000 rows
+
+Conclusion:
+The PostgreSQL query was faster on a very small table.
+ClickHouse scanned a much larger flat dataset and still returned the result quickly enough for analytical usage.
+
+
+8. Raw aggregation vs precomputed aggregation
+
+ClickHouse raw aggregation from orders_flat:
+Execution Time: 0.213 sec
+
+ClickHouse precomputed aggregation from monthly_sales:
+Execution Time: 0.014 sec
+
+Conclusion:
+The monthly_sales table is faster because it stores precomputed aggregates.
+This is typical for OLAP systems: read performance is improved by storing prepared analytical data.
