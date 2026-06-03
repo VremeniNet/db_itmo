@@ -1,0 +1,3 @@
+p95_order_value	p99_order_value	avg_order_value	orders_count
+268500	268500	83039.55822088355	333334
+0.161

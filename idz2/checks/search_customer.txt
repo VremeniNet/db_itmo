@@ -1,0 +1,3 @@
+customer_id	customer_name	customer_email	rows_count	total_revenue
+2	Иванов Иван Иванович	ivanov@example.com	100002	1583365000
+0.115

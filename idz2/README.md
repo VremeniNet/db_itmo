@@ -182,3 +182,223 @@ checks/load_data.txt
 ```
 
 В отличие от PostgreSQL из ИДЗ-1, данные здесь хранятся в плоском виде: в одной строке находятся данные заказа, клиента, товара, категории и суммы позиции. Это удобно для OLAP-запросов, потому что не нужно выполнять `JOIN` нескольких таблиц во время аналитического запроса.
+
+---
+
+## Часть 4. Бизнес-запросы
+
+Для ClickHouse были выполнены аналитические запросы к таблице `orders_flat`.
+
+SQL-запросы находятся в файле:
+
+```text
+sql/05_queries.sql
+```
+
+Результаты выполнения сохранены в файлах:
+
+```text
+checks/top10_products.txt
+checks/monthly_sales.txt
+checks/p99_order_value.txt
+checks/search_customer.txt
+checks/summing_vs_raw.txt
+```
+
+### 1. Топ-10 товаров по выручке
+
+```sql
+SELECT
+    product_id,
+    product_name,
+    category,
+    sum(quantity) AS total_qty,
+    sum(line_total) AS total_revenue
+FROM idz2.orders_flat
+GROUP BY
+    product_id,
+    product_name,
+    category
+ORDER BY total_revenue DESC
+LIMIT 10;
+```
+
+Результат:
+
+| product_id | product_name | category             | total_qty | total_revenue |
+| ---------: | ------------ | -------------------- | --------: | ------------: |
+|         10 | Ноутбук      | Компьютерная техника |    199999 |   16999915000 |
+|          7 | Монитор      | Компьютерная техника |    199999 |    4399978000 |
+|          3 | Внешний SSD  | Компьютерная техника |    200001 |    2400012000 |
+|          9 | Наушники     | Периферия            |    200001 |    1200006000 |
+|          2 | Веб-камера   | Периферия            |    200000 |     900000000 |
+|          5 | Клавиатура   | Периферия            |    200000 |     700000000 |
+|          1 | USB-хаб      | Аксессуары           |    199999 |     499997500 |
+|          8 | Мышь         | Периферия            |    200000 |     300000000 |
+|          4 | Кабель HDMI  | Аксессуары           |    199999 |     179999100 |
+|          6 | Коврик       | Аксессуары           |    200001 |     100000500 |
+
+Время выполнения:
+
+```text
+0.691 sec
+```
+
+### 2. Ежемесячная динамика продаж по категориям
+
+```sql
+SELECT
+    toStartOfMonth(order_date) AS month,
+    category,
+    sum(quantity) AS total_qty,
+    sum(line_total) AS total_revenue
+FROM idz2.orders_flat
+GROUP BY
+    month,
+    category
+ORDER BY
+    month,
+    category;
+```
+
+Пример результата:
+
+| month      | category             | total_qty | total_revenue |
+| ---------- | -------------------- | --------: | ------------: |
+| 2024-01-01 | Аксессуары           |     50270 |      64985400 |
+| 2024-01-01 | Компьютерная техника |     51181 |    2079552000 |
+| 2024-01-01 | Периферия            |     68547 |     265960500 |
+| 2024-02-01 | Аксессуары           |     48442 |      63340200 |
+| 2024-02-01 | Компьютерная техника |     47528 |    1835769000 |
+| 2024-02-01 | Периферия            |     63066 |     244038000 |
+
+Время выполнения:
+
+```text
+0.084 sec
+```
+
+### 3. Процентили p95 и p99 стоимости заказа
+
+Так как в `orders_flat` одна строка соответствует позиции заказа, сначала считается сумма каждого заказа, а потом по этим суммам считаются процентили.
+
+```sql
+WITH order_totals AS (
+    SELECT
+        order_id,
+        sum(toFloat64(line_total)) AS order_total
+    FROM idz2.orders_flat
+    GROUP BY order_id
+)
+SELECT
+    quantileExact(0.95)(order_total) AS p95_order_value,
+    quantileExact(0.99)(order_total) AS p99_order_value,
+    avg(order_total) AS avg_order_value,
+    count() AS orders_count
+FROM order_totals;
+```
+
+Результат:
+
+| p95_order_value | p99_order_value |   avg_order_value | orders_count |
+| --------------: | --------------: | ----------------: | -----------: |
+|          268500 |          268500 | 83039.55822088355 |       333334 |
+
+Время выполнения:
+
+```text
+0.161 sec
+```
+
+### 4. Поиск клиента по подстроке email
+
+```sql
+SELECT
+    customer_id,
+    customer_name,
+    customer_email,
+    count() AS rows_count,
+    sum(line_total) AS total_revenue
+FROM idz2.orders_flat
+WHERE positionCaseInsensitive(customer_email, 'ivanov') > 0
+GROUP BY
+    customer_id,
+    customer_name,
+    customer_email
+ORDER BY rows_count DESC;
+```
+
+Результат:
+
+| customer_id | customer_name        | customer_email                                  | rows_count | total_revenue |
+| ----------: | -------------------- | ----------------------------------------------- | ---------: | ------------: |
+|           2 | Иванов Иван Иванович | [ivanov@example.com](mailto:ivanov@example.com) |     100002 |    1583365000 |
+
+Время выполнения:
+
+```text
+0.115 sec
+```
+
+### 5. Сравнение `orders_flat` и `monthly_sales`
+
+Сначала агрегаты были посчитаны из сырой таблицы `orders_flat`:
+
+```sql
+SELECT
+    toStartOfMonth(order_date) AS month,
+    category,
+    region,
+    sum(toUInt64(quantity)) AS total_qty,
+    sum(line_total) AS total_revenue
+FROM idz2.orders_flat
+GROUP BY
+    month,
+    category,
+    region
+ORDER BY
+    month,
+    category,
+    region
+LIMIT 20;
+```
+
+Затем те же данные были получены из заранее рассчитанной таблицы `monthly_sales`:
+
+```sql
+SELECT
+    month,
+    category,
+    region,
+    sum(total_qty) AS total_qty,
+    sum(total_revenue) AS total_revenue
+FROM idz2.monthly_sales
+GROUP BY
+    month,
+    category,
+    region
+ORDER BY
+    month,
+    category,
+    region
+LIMIT 20;
+```
+
+Пример результата совпадает для обоих вариантов:
+
+| month      | category   | region          | total_qty | total_revenue |
+| ---------- | ---------- | --------------- | --------: | ------------: |
+| 2024-01-01 | Аксессуары | Екатеринбург    |      6856 |       7265600 |
+| 2024-01-01 | Аксессуары | Казань          |      6854 |       7264200 |
+| 2024-01-01 | Аксессуары | Москва          |      5715 |       8983500 |
+| 2024-01-01 | Аксессуары | Нижний Новгород |      5710 |       8971000 |
+| 2024-01-01 | Аксессуары | Новосибирск     |      5714 |       8984200 |
+
+Сравнение времени выполнения:
+
+| Источник        | Что делает                           |     Время |
+| --------------- | ------------------------------------ | --------: |
+| `orders_flat`   | считает агрегаты из 1 000 000 строк  | 0.213 sec |
+| `monthly_sales` | читает заранее рассчитанные агрегаты | 0.014 sec |
+
+`monthly_sales` работает быстрее, потому что данные уже агрегированы по месяцу, категории и региону. В отличие от запроса к `orders_flat`, ClickHouse не нужно заново группировать миллион строк.
