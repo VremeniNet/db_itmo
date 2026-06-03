@@ -450,3 +450,95 @@ checks/ttl_demo.txt
 ```
 
 TTL полезен для данных с ограниченным сроком хранения. Например, старые события, логи или временные аналитические данные можно автоматически удалять без ручного `DELETE`.
+
+---
+
+## Часть 6. Системные таблицы и сжатие
+
+Для анализа размера данных и степени сжатия использовалась системная таблица `system.parts_columns`.
+
+SQL-запрос находится в файле:
+
+```text
+sql/06_system_tables.sql
+```
+
+Результат сохранён в файле:
+
+```text
+checks/compression_stats.txt
+```
+
+### Статистика сжатия по колонкам
+
+| column | type | compressed | uncompressed | ratio |
+|---|---|---:|---:|---:|
+| customer_name | String | 1.21 MiB | 50.16 MiB | 41.33 |
+| product_name | String | 1.06 MiB | 21.74 MiB | 20.47 |
+| order_id | UInt64 | 3.98 MiB | 7.63 MiB | 1.92 |
+| price | Decimal(12, 2) | 544.39 KiB | 7.63 MiB | 14.35 |
+| customer_id | UInt64 | 545.34 KiB | 7.63 MiB | 14.33 |
+| product_id | UInt64 | 542.83 KiB | 7.63 MiB | 14.39 |
+| line_total | Decimal(12, 2) | 547.10 KiB | 7.63 MiB | 14.28 |
+| quantity | UInt32 | 442.50 KiB | 3.81 MiB | 8.83 |
+| order_datetime | DateTime | 3.80 MiB | 3.81 MiB | 1 |
+| order_date | Date | 13.93 KiB | 1.91 MiB | 140.17 |
+| customer_email | LowCardinality(String) | 256.56 KiB | 981.21 KiB | 3.82 |
+| region | LowCardinality(String) | 242.59 KiB | 980.66 KiB | 4.04 |
+| category | LowCardinality(String) | 6.84 KiB | 979.75 KiB | 143.26 |
+| order_status | LowCardinality(String) | 9.87 KiB | 979.31 KiB | 99.2 |
+
+Общий размер таблицы `orders_flat`:
+
+| table_name | active_parts | rows | size_on_disk |
+|---|---:|---:|---:|
+| orders_flat | 12 | 1000000 | 13.16 MiB |
+
+### Размер по партициям
+
+Таблица `orders_flat` разбита на партиции по месяцам:
+
+```sql
+PARTITION BY toYYYYMM(order_date)
+```
+
+| partition | parts_count | rows | size_on_disk |
+|---|---:|---:|---:|
+| 202401 | 1 | 84999 | 1.12 MiB |
+| 202402 | 1 | 79518 | 1.05 MiB |
+| 202403 | 1 | 84997 | 1.12 MiB |
+| 202404 | 1 | 82170 | 1.08 MiB |
+| 202405 | 1 | 84909 | 1.11 MiB |
+| 202406 | 1 | 82170 | 1.08 MiB |
+| 202407 | 1 | 84999 | 1.11 MiB |
+| 202408 | 1 | 84999 | 1.11 MiB |
+| 202409 | 1 | 82170 | 1.08 MiB |
+| 202410 | 1 | 84909 | 1.13 MiB |
+| 202411 | 1 | 82170 | 1.09 MiB |
+| 202412 | 1 | 82170 | 1.08 MiB |
+
+### Вывод по сжатию
+
+Лучше всего сжались колонки `category`, `order_date` и `order_status`.
+
+Колонка `category` сжалась примерно в 143 раза, потому что в ней всего несколько повторяющихся значений:
+
+- `Аксессуары`;
+- `Периферия`;
+- `Компьютерная техника`.
+
+Колонка `order_status` сжалась примерно в 99 раз, так как статусов тоже мало и они часто повторяются.
+
+Колонка `order_date` сжалась примерно в 140 раз, потому что даты повторяются для большого количества строк и хорошо группируются внутри партиций.
+
+Поля `customer_email`, `region`, `category` и `order_status` имеют тип `LowCardinality(String)`.  
+`LowCardinality` хорошо подходит для строковых колонок с небольшим количеством уникальных значений. ClickHouse хранит такие значения через словарь, поэтому повторяющиеся строки занимают меньше места.
+
+Ключ сортировки таблицы:
+
+```sql
+ORDER BY (category, toStartOfHour(order_datetime), order_status)
+```
+
+тоже влияет на сжатие.  
+Когда похожие значения лежат рядом, ClickHouse эффективнее сжимает данные. Поэтому поля с повторяющимися значениями, например `category` и `order_status`, хорошо подходят для ключа сортировки в аналитической таблице.
