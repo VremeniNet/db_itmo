@@ -137,5 +137,48 @@ ORDER BY (month, category, region);
 
 Такая таблица нужна для аналитики: вместо пересчёта продаж по сырой таблице `orders_flat` можно читать уже подготовленные агрегаты.
 
-
 ---
+
+## Часть 3. Загрузка данных
+
+Данные для ClickHouse генерируются скриптом:
+
+```text
+scripts/generate_data.py
+````
+
+Скрипт заполняет таблицу `orders_flat` с помощью запроса:
+
+```sql
+INSERT INTO idz2.orders_flat
+SELECT ...
+FROM numbers(1000000);
+```
+
+В результате создаётся 1 000 000 строк.
+Одна строка соответствует одной позиции заказа.
+
+После загрузки `orders_flat` скрипт также заполняет агрегатную таблицу `monthly_sales`:
+
+```sql
+INSERT INTO idz2.monthly_sales
+SELECT
+    toStartOfMonth(order_date) AS month,
+    category,
+    region,
+    sum(toUInt64(quantity)) AS total_qty,
+    sum(line_total) AS total_revenue
+FROM idz2.orders_flat
+GROUP BY
+    month,
+    category,
+    region;
+```
+
+Результат выполнения сохранён в файле:
+
+```text
+checks/load_data.txt
+```
+
+В отличие от PostgreSQL из ИДЗ-1, данные здесь хранятся в плоском виде: в одной строке находятся данные заказа, клиента, товара, категории и суммы позиции. Это удобно для OLAP-запросов, потому что не нужно выполнять `JOIN` нескольких таблиц во время аналитического запроса.

@@ -1,0 +1,11 @@
+ClickHouse data generation
+
+Rows requested: 1000000
+
+docker start output:
+idz2-clickhouse
+
+clickhouse-client output:
+monthly_sales	288
+orders_flat	1000000
+2024-01-01	2024-12-30	1000000
