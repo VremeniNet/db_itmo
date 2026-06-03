@@ -107,5 +107,35 @@ TTL order_date + INTERVAL 90 DAY DELETE
 Такая таблица нужна для данных с ограниченным сроком хранения. Например, если старые события или заказы больше не нужны в горячем хранилище, их можно автоматически удалять через TTL.
 
 
+### Таблица `monthly_sales`
+
+Создана таблица `monthly_sales` на движке `SummingMergeTree`.
+
+Эта таблица нужна для хранения заранее рассчитанных агрегатов по продажам:
+
+- месяц;
+- категория;
+- регион;
+- суммарное количество товаров;
+- суммарная выручка.
+
+```sql
+CREATE TABLE idz2.monthly_sales (
+    month         Date,
+    category      LowCardinality(String),
+    region        LowCardinality(String),
+    total_qty     UInt64,
+    total_revenue Decimal(18, 2)
+)
+ENGINE = SummingMergeTree((total_qty, total_revenue))
+PARTITION BY toYYYYMM(month)
+ORDER BY (month, category, region);
+```
+
+`SummingMergeTree` выбран потому, что таблица хранит агрегированные данные.
+Если строки имеют одинаковые значения `month`, `category` и `region`, то числовые поля `total_qty` и `total_revenue` могут суммироваться при merge-операциях.
+
+Такая таблица нужна для аналитики: вместо пересчёта продаж по сырой таблице `orders_flat` можно читать уже подготовленные агрегаты.
+
 
 ---
