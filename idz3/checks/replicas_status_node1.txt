@@ -1,0 +1,13 @@
+﻿Row 1:
+тФАтФАтФАтФАтФАтФА
+database:          idz3
+table:             events
+replica_name:      ch1
+is_leader:         1
+total_replicas:    3
+active_replicas:   3
+queue_size:        0
+inserts_in_queue:  0
+merges_in_queue:   0
+log_pointer:       1
+last_queue_update: 2026-06-04 19:54:59

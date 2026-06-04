@@ -157,3 +157,64 @@ docker exec -it idz3-ch3 clickhouse-client --query "SHOW TABLES FROM idz3;"
 ```
 
 На всех трёх репликах была найдена таблица `events`.
+
+## Часть 3. Проверка репликации
+
+Для проверки репликации данные вставлялись только в первую реплику `ch1`.
+
+SQL-запрос находится в файле:
+
+```text
+sql/02_insert_data.sql
+```
+
+Для генерации данных использовалась таблица-функция `numbers(120000)`:
+
+```sql
+INSERT INTO idz3.events
+SELECT
+    now() - toIntervalSecond(number % 86400) AS event_time,
+    multiIf(
+        number % 4 = 0, 'view',
+        number % 4 = 1, 'click',
+        number % 4 = 2, 'purchase',
+        'logout'
+    ) AS event_type,
+    toUInt64(number % 10000) AS user_id,
+    concat('payload_', toString(number)) AS payload
+FROM numbers(120000);
+```
+
+После вставки было проверено количество строк на каждой реплике:
+
+```powershell
+docker exec -it idz3-ch1 clickhouse-client --query "SELECT hostName(), count() FROM idz3.events;"
+docker exec -it idz3-ch2 clickhouse-client --query "SELECT hostName(), count() FROM idz3.events;"
+docker exec -it idz3-ch3 clickhouse-client --query "SELECT hostName(), count() FROM idz3.events;"
+```
+
+На всех трёх репликах количество строк совпало:
+
+| Узел | Количество строк |
+|---|---:|
+| `ch1` | 120000 |
+| `ch2` | 120000 |
+| `ch3` | 120000 |
+
+Также был проверен статус репликации через `system.replicas`.
+
+Результаты сохранены в файлах:
+
+```text
+checks/replicas_status_node1.txt
+checks/replicas_status_node2.txt
+checks/replicas_status_node3.txt
+```
+
+В нормальном состоянии у реплик:
+
+- `total_replicas = 3`;
+- `active_replicas = 3`;
+- `queue_size = 0`.
+
+Это означает, что все три реплики активны и очередь репликации пуста.
