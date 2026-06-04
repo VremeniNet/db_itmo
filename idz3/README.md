@@ -108,3 +108,52 @@ checks/keeper_health.txt
 ```
 
 В результате проверки все три узла ответили на `ruok`, а в выводе `mntr` видны роли узлов Keeper.
+
+## Часть 2. Реплицированная таблица
+
+Создана база данных `idz3` и таблица `events` на всех узлах кластера `idz3_cluster`.
+
+DDL находится в файле:
+
+```text
+sql/01_create_table.sql
+```
+
+Таблица создана на движке `ReplicatedMergeTree`:
+
+```sql
+CREATE TABLE idz3.events ON CLUSTER idz3_cluster (
+    event_time DateTime,
+    event_type LowCardinality(String),
+    user_id    UInt64,
+    payload    String
+)
+ENGINE = ReplicatedMergeTree(
+    '/clickhouse/tables/{shard}/events',
+    '{replica}'
+)
+PARTITION BY toYYYYMM(event_time)
+ORDER BY (event_type, event_time);
+```
+
+Путь `/clickhouse/tables/{shard}/events` используется в ClickHouse Keeper для хранения журнала репликации.
+
+Макрос `{shard}` одинаковый для всех трёх реплик и равен `shard1`.
+
+Макрос `{replica}` отличается на каждой ноде:
+
+- `ch1`;
+- `ch2`;
+- `ch3`.
+
+После выполнения DDL таблица `events` появилась на всех трёх узлах ClickHouse.
+
+Проверка выполнялась командами:
+
+```powershell
+docker exec -it idz3-ch1 clickhouse-client --query "SHOW TABLES FROM idz3;"
+docker exec -it idz3-ch2 clickhouse-client --query "SHOW TABLES FROM idz3;"
+docker exec -it idz3-ch3 clickhouse-client --query "SHOW TABLES FROM idz3;"
+```
+
+На всех трёх репликах была найдена таблица `events`.
