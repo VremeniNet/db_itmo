@@ -1,0 +1,9 @@
+<clickhouse>
+    <macros>
+        <cluster>idz3_cluster</cluster>
+        <shard>shard1</shard>
+        <replica>ch2</replica>
+    </macros>
+
+    <interserver_http_host>ch2</interserver_http_host>
+</clickhouse>

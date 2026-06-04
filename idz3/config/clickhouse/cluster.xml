@@ -1,0 +1,41 @@
+<clickhouse>
+    <listen_host>0.0.0.0</listen_host>
+
+    <remote_servers>
+        <idz3_cluster>
+            <shard>
+                <internal_replication>true</internal_replication>
+
+                <replica>
+                    <host>ch1</host>
+                    <port>9000</port>
+                </replica>
+
+                <replica>
+                    <host>ch2</host>
+                    <port>9000</port>
+                </replica>
+
+                <replica>
+                    <host>ch3</host>
+                    <port>9000</port>
+                </replica>
+            </shard>
+        </idz3_cluster>
+    </remote_servers>
+
+    <zookeeper>
+        <node index="1">
+            <host>keeper1</host>
+            <port>9181</port>
+        </node>
+        <node index="2">
+            <host>keeper2</host>
+            <port>9181</port>
+        </node>
+        <node index="3">
+            <host>keeper3</host>
+            <port>9181</port>
+        </node>
+    </zookeeper>
+</clickhouse>
