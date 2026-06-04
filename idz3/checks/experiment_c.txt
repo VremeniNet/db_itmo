@@ -1,0 +1,146 @@
+Experiment C — deterministic replication without conflicts
+
+Run event_type: experiment_c_1780607361
+Rows inserted during experiment: 100000
+
+================================================================================
+Start all required containers
+================================================================================
+idz3-keeper1
+idz3-keeper2
+idz3-keeper3
+idz3-ch1
+idz3-ch2
+idz3-ch3
+
+
+================================================================================
+Wait for ClickHouse nodes
+================================================================================
+idz3-ch1 is ready
+idz3-ch2 is ready
+idz3-ch3 is ready
+
+
+================================================================================
+Initial counts for this experiment event_type
+================================================================================
+[idz3-ch1]
+node	rows_count
+ch1	0
+
+[idz3-ch2]
+node	rows_count
+ch2	0
+
+[idz3-ch3]
+node	rows_count
+ch3	0
+
+
+
+================================================================================
+Stop replica ch2
+================================================================================
+idz3-ch2
+
+
+================================================================================
+Insert new data into ch1 while ch2 is stopped
+================================================================================
+
+
+
+================================================================================
+Counts on available replicas while ch2 is stopped
+================================================================================
+[idz3-ch1]
+node	rows_count
+ch1	100000
+
+[idz3-ch3]
+node	rows_count
+ch3	100000
+
+
+
+================================================================================
+Start replica ch2
+================================================================================
+idz3-ch2
+
+
+================================================================================
+Wait for ch2 ClickHouse server
+================================================================================
+idz3-ch2 is ready
+
+
+================================================================================
+Run SYSTEM SYNC REPLICA on ch2
+================================================================================
+
+
+
+================================================================================
+Wait for ch2 to receive experiment data
+================================================================================
+idz3-ch2 synchronized: experiment_c_1780607361 rows = 100000
+
+
+================================================================================
+Final counts on all replicas
+================================================================================
+[idz3-ch1]
+node	rows_count
+ch1	100000
+
+[idz3-ch2]
+node	rows_count
+ch2	100000
+
+[idz3-ch3]
+node	rows_count
+ch3	100000
+
+
+
+================================================================================
+Consistency check on all replicas
+================================================================================
+[idz3-ch1]
+node	rows_count	min_event_time	max_event_time	user_id_sum	unique_payloads	payload_hash_sum
+ch1	100000	2026-06-04 21:09:45	2026-06-06 00:56:24	400499950000	100000	3685298462682120741
+
+[idz3-ch2]
+node	rows_count	min_event_time	max_event_time	user_id_sum	unique_payloads	payload_hash_sum
+ch2	100000	2026-06-04 21:09:45	2026-06-06 00:56:24	400499950000	100000	3685298462682120741
+
+[idz3-ch3]
+node	rows_count	min_event_time	max_event_time	user_id_sum	unique_payloads	payload_hash_sum
+ch3	100000	2026-06-04 21:09:45	2026-06-06 00:56:24	400499950000	100000	3685298462682120741
+
+
+
+================================================================================
+Final system.replicas from ch2
+================================================================================
+Row 1:
+──────
+database:          idz3
+table:             events
+replica_name:      ch2
+is_leader:         1
+total_replicas:    3
+active_replicas:   3
+queue_size:        0
+inserts_in_queue:  0
+merges_in_queue:   0
+log_pointer:       7
+last_queue_update: 2026-06-04 21:10:01
+
+
+Conclusion:
+No conflict appeared after ch2 recovery.
+The stopped replica received the same data from the replication log in Keeper.
+ReplicatedMergeTree replication is deterministic: replicas follow the shared log instead of creating independent conflicting states.
