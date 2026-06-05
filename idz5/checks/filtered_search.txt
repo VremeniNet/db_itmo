@@ -1,0 +1,32 @@
+4.4 Search with attribute filters
+
+SQL:
+SELECT id, title, price, rating
+FROM products
+WHERE MATCH('laptop')
+  AND price BETWEEN 30000 AND 80000
+  AND rating >= 4.0
+ORDER BY rating DESC
+LIMIT 10
+
+Result:
+[{
+"columns":[{"id":{"type":"long long"}},{"title":{"type":"string"}},{"price":{"type":"float"}},{"rating":{"type":"float"}}],
+"data":[
+{"id":63,"title":"Lenovo Laptop Pro 63","price":55053.000000,"rating":5.000000},
+{"id":79,"title":"Dell Gaming Laptop 79","price":75069.000000,"rating":5.000000},
+{"id":143,"title":"Lenovo Laptop Pro 143","price":55133.000000,"rating":5.000000},
+{"id":159,"title":"Dell Gaming Laptop 159","price":75149.000000,"rating":5.000000},
+{"id":223,"title":"Lenovo Laptop Pro 223","price":55213.000000,"rating":5.000000},
+{"id":239,"title":"Dell Gaming Laptop 239","price":75229.000000,"rating":5.000000},
+{"id":303,"title":"Lenovo Laptop Pro 303","price":55293.000000,"rating":5.000000},
+{"id":319,"title":"Dell Gaming Laptop 319","price":75309.000000,"rating":5.000000},
+{"id":383,"title":"Lenovo Laptop Pro 383","price":55373.000000,"rating":5.000000},
+{"id":399,"title":"Dell Gaming Laptop 399","price":75389.000000,"rating":5.000000}
+],
+"total":10,
+"error":"",
+"warning":""
+}]
+
+Elapsed time: 0.0130 sec

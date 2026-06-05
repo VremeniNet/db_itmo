@@ -1,0 +1,30 @@
+4.1 Basic search
+
+SQL:
+SELECT id, title, WEIGHT() AS w
+FROM products
+WHERE MATCH('wireless bluetooth headphones')
+ORDER BY w DESC
+LIMIT 10
+
+Result:
+[{
+"columns":[{"id":{"type":"long long"}},{"title":{"type":"string"}},{"w":{"type":"long long"}}],
+"data":[
+{"id":10,"title":"Sony Wireless Bluetooth Headphones 10","w":6537},
+{"id":20,"title":"Sony Wireless Bluetooth Headphones 20","w":6537},
+{"id":30,"title":"Sony Wireless Bluetooth Headphones 30","w":6537},
+{"id":40,"title":"Sony Wireless Bluetooth Headphones 40","w":6537},
+{"id":50,"title":"Sony Wireless Bluetooth Headphones 50","w":6537},
+{"id":60,"title":"Sony Wireless Bluetooth Headphones 60","w":6537},
+{"id":70,"title":"Sony Wireless Bluetooth Headphones 70","w":6537},
+{"id":80,"title":"Sony Wireless Bluetooth Headphones 80","w":6537},
+{"id":90,"title":"Sony Wireless Bluetooth Headphones 90","w":6537},
+{"id":100,"title":"Sony Wireless Bluetooth Headphones 100","w":6537}
+],
+"total":10,
+"error":"",
+"warning":""
+}]
+
+Elapsed time: 0.0704 sec

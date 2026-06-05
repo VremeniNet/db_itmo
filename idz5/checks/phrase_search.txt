@@ -1,0 +1,30 @@
+4.2 Exact phrase search
+
+SQL:
+SELECT id, title, WEIGHT() AS w
+FROM products
+WHERE MATCH('"noise cancelling"')
+ORDER BY w DESC
+LIMIT 10
+
+Result:
+[{
+"columns":[{"id":{"type":"long long"}},{"title":{"type":"string"}},{"w":{"type":"long long"}}],
+"data":[
+{"id":1,"title":"Samsung Noise Cancelling Headphones 1","w":4537},
+{"id":11,"title":"Samsung Noise Cancelling Headphones 11","w":4537},
+{"id":21,"title":"Samsung Noise Cancelling Headphones 21","w":4537},
+{"id":31,"title":"Samsung Noise Cancelling Headphones 31","w":4537},
+{"id":41,"title":"Samsung Noise Cancelling Headphones 41","w":4537},
+{"id":51,"title":"Samsung Noise Cancelling Headphones 51","w":4537},
+{"id":61,"title":"Samsung Noise Cancelling Headphones 61","w":4537},
+{"id":71,"title":"Samsung Noise Cancelling Headphones 71","w":4537},
+{"id":81,"title":"Samsung Noise Cancelling Headphones 81","w":4537},
+{"id":91,"title":"Samsung Noise Cancelling Headphones 91","w":4537}
+],
+"total":10,
+"error":"",
+"warning":""
+}]
+
+Elapsed time: 0.0275 sec

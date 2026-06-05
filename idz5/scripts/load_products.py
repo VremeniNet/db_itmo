@@ -147,6 +147,9 @@ def build_product(product_id: int) -> dict:
 
     brand = BRANDS[product_id % len(BRANDS)]
     color = COLORS[product_id % len(COLORS)]
+    
+    if pattern["category"] == "Mobile":
+        color = "black"
 
     price = float(pattern["base_price"] + (product_id % 2500))
     rating = round(3.5 + ((product_id % 16) / 10), 1)

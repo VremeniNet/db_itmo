@@ -1,0 +1,30 @@
+4.3 Proximity search
+
+SQL:
+SELECT id, title, WEIGHT() AS w
+FROM products
+WHERE MATCH('"portable speaker"~3')
+ORDER BY w DESC
+LIMIT 10
+
+Result:
+[{
+"columns":[{"id":{"type":"long long"}},{"title":{"type":"string"}},{"w":{"type":"long long"}}],
+"data":[
+{"id":2,"title":"Apple Portable Speaker 2","w":3559},
+{"id":12,"title":"Apple Portable Speaker 12","w":3559},
+{"id":22,"title":"Apple Portable Speaker 22","w":3559},
+{"id":32,"title":"Apple Portable Speaker 32","w":3559},
+{"id":42,"title":"Apple Portable Speaker 42","w":3559},
+{"id":52,"title":"Apple Portable Speaker 52","w":3559},
+{"id":62,"title":"Apple Portable Speaker 62","w":3559},
+{"id":72,"title":"Apple Portable Speaker 72","w":3559},
+{"id":82,"title":"Apple Portable Speaker 82","w":3559},
+{"id":92,"title":"Apple Portable Speaker 92","w":3559}
+],
+"total":10,
+"error":"",
+"warning":""
+}]
+
+Elapsed time: 0.0100 sec

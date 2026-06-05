@@ -1,0 +1,30 @@
+4.5 Search by JSON attribute
+
+SQL:
+SELECT id, title, tags
+FROM products
+WHERE MATCH('phone')
+  AND tags.color = 'black'
+LIMIT 10
+
+Result:
+[{
+"columns":[{"id":{"type":"long long"}},{"title":{"type":"string"}},{"tags":{"type":"json"}}],
+"data":[
+{"id":4,"title":"Asus Smart Phone 4","tags":"{\"color\":\"black\",\"warranty\":\"12 months\",\"delivery\":\"standard\",\"origin\":\"generated\"}"},
+{"id":14,"title":"Asus Smart Phone 14","tags":"{\"color\":\"black\",\"warranty\":\"12 months\",\"delivery\":\"standard\",\"origin\":\"generated\"}"},
+{"id":24,"title":"Asus Smart Phone 24","tags":"{\"color\":\"black\",\"warranty\":\"12 months\",\"delivery\":\"express\",\"origin\":\"generated\"}"},
+{"id":34,"title":"Asus Smart Phone 34","tags":"{\"color\":\"black\",\"warranty\":\"12 months\",\"delivery\":\"standard\",\"origin\":\"generated\"}"},
+{"id":44,"title":"Asus Smart Phone 44","tags":"{\"color\":\"black\",\"warranty\":\"12 months\",\"delivery\":\"standard\",\"origin\":\"generated\"}"},
+{"id":54,"title":"Asus Smart Phone 54","tags":"{\"color\":\"black\",\"warranty\":\"12 months\",\"delivery\":\"express\",\"origin\":\"generated\"}"},
+{"id":64,"title":"Asus Smart Phone 64","tags":"{\"color\":\"black\",\"warranty\":\"12 months\",\"delivery\":\"standard\",\"origin\":\"generated\"}"},
+{"id":74,"title":"Asus Smart Phone 74","tags":"{\"color\":\"black\",\"warranty\":\"12 months\",\"delivery\":\"standard\",\"origin\":\"generated\"}"},
+{"id":84,"title":"Asus Smart Phone 84","tags":"{\"color\":\"black\",\"warranty\":\"12 months\",\"delivery\":\"express\",\"origin\":\"generated\"}"},
+{"id":94,"title":"Asus Smart Phone 94","tags":"{\"color\":\"black\",\"warranty\":\"12 months\",\"delivery\":\"standard\",\"origin\":\"generated\"}"}
+],
+"total":10,
+"error":"",
+"warning":""
+}]
+
+Elapsed time: 0.0215 sec
