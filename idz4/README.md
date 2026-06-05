@@ -41,3 +41,66 @@ idz4/
     ├── distributed_queries.txt
     └── reshard_demo.txt
 ```
+
+## Часть 1. Кластер 2x2
+
+Кластер развёрнут через Docker Compose.
+
+Используются 4 узла ClickHouse:
+
+- `ch-s1-r1` — шард 1, реплика 1;
+- `ch-s1-r2` — шард 1, реплика 2;
+- `ch-s2-r1` — шард 2, реплика 1;
+- `ch-s2-r2` — шард 2, реплика 2.
+
+Также используются 3 узла ClickHouse Keeper:
+
+- `keeper1`;
+- `keeper2`;
+- `keeper3`.
+
+Keeper нужен для координации репликации таблиц `ReplicatedMergeTree`.
+
+В конфигурации `remote_servers` описан кластер `cluster_2x2`:
+
+- 2 шарда;
+- по 2 реплики в каждом шарде.
+
+Для каждого ClickHouse-узла заданы макросы:
+
+- `{shard}`;
+- `{replica}`;
+- `{cluster}`.
+
+Макросы используются при создании реплицированных таблиц, чтобы каждая реплика имела своё имя, а таблицы одного шарда использовали общий путь в ClickHouse Keeper.
+
+Проверка кластера выполнялась запросом:
+
+```sql
+SELECT
+    cluster,
+    shard_num,
+    replica_num,
+    host_name,
+    port
+FROM system.clusters
+WHERE cluster = 'cluster_2x2'
+ORDER BY
+    shard_num,
+    replica_num;
+```
+
+Результат сохранён в файле:
+
+```text
+checks/cluster_info.txt
+```
+
+Результат проверки:
+
+| cluster | shard_num | replica_num | host_name | port |
+|---|---:|---:|---|---:|
+| cluster_2x2 | 1 | 1 | ch-s1-r1 | 9000 |
+| cluster_2x2 | 1 | 2 | ch-s1-r2 | 9000 |
+| cluster_2x2 | 2 | 1 | ch-s2-r1 | 9000 |
+| cluster_2x2 | 2 | 2 | ch-s2-r2 | 9000 |

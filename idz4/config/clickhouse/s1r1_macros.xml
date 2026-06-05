@@ -1,0 +1,9 @@
+<clickhouse>
+    <macros>
+        <cluster>cluster_2x2</cluster>
+        <shard>shard1</shard>
+        <replica>s1r1</replica>
+    </macros>
+
+    <interserver_http_host>ch-s1-r1</interserver_http_host>
+</clickhouse>
