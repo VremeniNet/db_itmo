@@ -1,0 +1,192 @@
+Distributed queries check
+
+
+================================================================================
+Create and load user_dict
+================================================================================
+ch-s2-r2	9000	0		3	0
+ch-s1-r1	9000	0		2	0
+ch-s2-r1	9000	0		1	0
+ch-s1-r2	9000	0		0	0
+ch-s2-r2	9000	0		3	1
+ch-s2-r1	9000	0		2	1
+ch-s1-r2	9000	0		1	1
+ch-s1-r1	9000	0		0	0
+ch-s1-r1	9000	0		3	1
+ch-s2-r2	9000	0		2	1
+ch-s2-r1	9000	0		1	1
+ch-s1-r2	9000	0		0	0
+ch-s2-r1	9000	0		3	0
+ch-s2-r2	9000	0		2	0
+ch-s1-r1	9000	0		1	0
+ch-s1-r2	9000	0		0	0
+ch-s1-r1	9000	0		3	0
+ch-s1-r2	9000	0		2	0
+ch-s2-r1	9000	0		1	0
+ch-s2-r2	9000	0		0	0
+
+Elapsed time: 8.569 sec
+
+================================================================================
+Sync user_dict replicas
+================================================================================
+[idz4-ch-s1-r1]
+
+Elapsed time: 0.324 sec
+
+[idz4-ch-s1-r2]
+
+Elapsed time: 0.327 sec
+
+[idz4-ch-s2-r1]
+
+Elapsed time: 0.339 sec
+
+[idz4-ch-s2-r2]
+
+Elapsed time: 0.328 sec
+
+
+================================================================================
+1. Global COUNT through events_distributed
+================================================================================
+SQL:
+SELECT
+    count() AS distributed_count
+FROM idz4.events_distributed
+FORMAT TabSeparatedWithNames
+
+Result:
+distributed_count
+2000000
+
+Elapsed time: 0.389 sec
+
+================================================================================
+1. Local shard counts
+================================================================================
+[idz4-ch-s1-r1]
+host	rows
+ch-s1-r1	1000608
+Elapsed time: 0.311 sec
+
+[idz4-ch-s2-r1]
+host	rows
+ch-s2-r1	999392
+Elapsed time: 0.340 sec
+
+Local shard sum: 2000000
+
+================================================================================
+2. GROUP BY with sharding key: top-10 users by event count
+================================================================================
+SQL:
+SELECT
+    user_id,
+    count() AS events_count,
+    sum(duration_ms) AS total_duration_ms
+FROM idz4.events_distributed
+GROUP BY user_id
+ORDER BY
+    events_count DESC,
+    user_id
+LIMIT 10
+FORMAT TabSeparatedWithNames
+
+Result:
+user_id	events_count	total_duration_ms
+0	4	400
+1	4	404
+2	4	408
+3	4	412
+4	4	416
+5	4	420
+6	4	424
+7	4	428
+8	4	432
+9	4	436
+
+Elapsed time: 1.677 sec
+
+================================================================================
+3. GROUP BY without sharding key: top-10 pages by visits
+================================================================================
+SQL:
+SELECT
+    page_url,
+    count() AS visits,
+    uniqExact(user_id) AS users_count,
+    round(avg(duration_ms), 2) AS avg_duration_ms
+FROM idz4.events_distributed
+GROUP BY page_url
+ORDER BY
+    visits DESC,
+    page_url
+LIMIT 10
+FORMAT TabSeparatedWithNames
+
+Result:
+page_url	visits	users_count	avg_duration_ms
+/page/0	2000	500	4600
+/page/1	2000	500	4601
+/page/10	2000	500	4610
+/page/100	2000	500	4700
+/page/101	2000	500	4701
+/page/102	2000	500	4702
+/page/103	2000	500	4703
+/page/104	2000	500	4704
+/page/105	2000	500	4705
+/page/106	2000	500	4706
+
+Elapsed time: 0.883 sec
+
+================================================================================
+4. JOIN events_distributed with local replicated user_dict
+================================================================================
+SQL:
+SELECT
+    u.segment,
+    count() AS events_count,
+    uniqExact(e.user_id) AS users_count,
+    round(avg(e.duration_ms), 2) AS avg_duration_ms
+FROM idz4.events_distributed AS e
+INNER JOIN idz4.user_dict AS u
+    ON e.user_id = u.user_id
+GROUP BY u.segment
+ORDER BY events_count DESC
+FORMAT TabSeparatedWithNames
+
+Result:
+segment	events_count	users_count	avg_duration_ms
+new	500000	125000	5098
+regular	500000	125000	5099
+inactive	500000	125000	5101
+vip	500000	125000	5100
+
+Elapsed time: 1.870 sec
+
+================================================================================
+5. GLOBAL IN example for vip users
+================================================================================
+SQL:
+SELECT
+    count() AS vip_events
+FROM idz4.events_distributed
+WHERE user_id GLOBAL IN (
+    SELECT user_id
+    FROM idz4.user_dict_distributed
+    WHERE segment = 'vip'
+)
+FORMAT TabSeparatedWithNames
+
+Result:
+vip_events
+500000
+
+Elapsed time: 0.631 sec
+
+Notes:
+- GROUP BY user_id is efficient because user_id is the sharding key.
+- GROUP BY page_url is not aligned with the sharding key, so partial aggregates from different shards have to be merged.
+- user_dict is sharded by the same user_id key, so the JOIN can be executed with colocated data.
+- GLOBAL IN builds a set once and sends it to shards, which is useful when a small reference set must be broadcast.

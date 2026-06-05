@@ -55,6 +55,7 @@ services:
     volumes:
       - ./config/clickhouse/cluster.xml:/etc/clickhouse-server/config.d/cluster.xml:ro
       - ./config/clickhouse/s1r1_macros.xml:/etc/clickhouse-server/config.d/macros.xml:ro
+      - ./config/clickhouse/users.xml:/etc/clickhouse-server/users.d/users.xml:ro
       - ch-s1-r1-data:/var/lib/clickhouse
     ports:
       - "8211:8123"
@@ -71,6 +72,7 @@ services:
     volumes:
       - ./config/clickhouse/cluster.xml:/etc/clickhouse-server/config.d/cluster.xml:ro
       - ./config/clickhouse/s1r2_macros.xml:/etc/clickhouse-server/config.d/macros.xml:ro
+      - ./config/clickhouse/users.xml:/etc/clickhouse-server/users.d/users.xml:ro
       - ch-s1-r2-data:/var/lib/clickhouse
     ports:
       - "8212:8123"
@@ -87,6 +89,7 @@ services:
     volumes:
       - ./config/clickhouse/cluster.xml:/etc/clickhouse-server/config.d/cluster.xml:ro
       - ./config/clickhouse/s2r1_macros.xml:/etc/clickhouse-server/config.d/macros.xml:ro
+      - ./config/clickhouse/users.xml:/etc/clickhouse-server/users.d/users.xml:ro
       - ch-s2-r1-data:/var/lib/clickhouse
     ports:
       - "8221:8123"
@@ -103,6 +106,7 @@ services:
     volumes:
       - ./config/clickhouse/cluster.xml:/etc/clickhouse-server/config.d/cluster.xml:ro
       - ./config/clickhouse/s2r2_macros.xml:/etc/clickhouse-server/config.d/macros.xml:ro
+      - ./config/clickhouse/users.xml:/etc/clickhouse-server/users.d/users.xml:ro
       - ch-s2-r2-data:/var/lib/clickhouse
     ports:
       - "8222:8123"

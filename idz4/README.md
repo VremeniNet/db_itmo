@@ -264,3 +264,254 @@ checks/data_distribution.txt
 
 Каждый проверенный `user_id` оказался только на одном шарде, но на двух репликах этого шарда.  
 Это подтверждает, что шардирование по `xxHash64(user_id)` работает предсказуемо.
+
+## Часть 4. Запросы через Distributed
+
+Для проверки работы распределённых запросов использовались таблицы:
+
+* `events_local` — локальная таблица на `ReplicatedMergeTree`;
+* `events_distributed` — распределённая таблица на `Distributed`;
+* `user_dict` — локальная справочная таблица пользователей;
+* `user_dict_distributed` — распределённая таблица для справочника пользователей.
+
+SQL-запросы находятся в файлах:
+
+```text
+sql/03_user_dict.sql
+sql/04_queries.sql
+```
+
+Результаты выполнения сохранены в файле:
+
+```text
+checks/distributed_queries.txt
+```
+
+### Глобальный COUNT
+
+Запрос:
+
+```sql
+SELECT
+    count() AS distributed_count
+FROM idz4.events_distributed;
+```
+
+Результат:
+
+| distributed_count |
+| ----------------: |
+|           2000000 |
+
+Время выполнения:
+
+```text
+0.389 sec
+```
+
+Также была проверена сумма строк на локальных таблицах основных реплик шардов:
+
+| Узел       |    rows |
+| ---------- | ------: |
+| `ch-s1-r1` | 1000608 |
+| `ch-s2-r1` |  999392 |
+
+Сумма локальных строк:
+
+```text
+2000000
+```
+
+Это совпадает с результатом запроса через `events_distributed`.
+
+### GROUP BY с шардированным ключом
+
+Запрос:
+
+```sql
+SELECT
+    user_id,
+    count() AS events_count,
+    sum(duration_ms) AS total_duration_ms
+FROM idz4.events_distributed
+GROUP BY user_id
+ORDER BY
+    events_count DESC,
+    user_id
+LIMIT 10;
+```
+
+Результат:
+
+| user_id | events_count | total_duration_ms |
+| ------: | -----------: | ----------------: |
+|       0 |            4 |               400 |
+|       1 |            4 |               404 |
+|       2 |            4 |               408 |
+|       3 |            4 |               412 |
+|       4 |            4 |               416 |
+|       5 |            4 |               420 |
+|       6 |            4 |               424 |
+|       7 |            4 |               428 |
+|       8 |            4 |               432 |
+|       9 |            4 |               436 |
+
+Время выполнения:
+
+```text
+1.677 sec
+```
+
+Этот запрос группирует данные по `user_id`.
+Так как `user_id` используется в ключе шардирования `xxHash64(user_id)`, все события одного пользователя попадают на один шард. Поэтому агрегация по пользователю выполняется эффективно: ClickHouse не нужно собирать события одного пользователя с разных шардов.
+
+### GROUP BY без шардированного ключа
+
+Запрос:
+
+```sql
+SELECT
+    page_url,
+    count() AS visits,
+    uniqExact(user_id) AS users_count,
+    round(avg(duration_ms), 2) AS avg_duration_ms
+FROM idz4.events_distributed
+GROUP BY page_url
+ORDER BY
+    visits DESC,
+    page_url
+LIMIT 10;
+```
+
+Результат:
+
+| page_url    | visits | users_count | avg_duration_ms |
+| ----------- | -----: | ----------: | --------------: |
+| `/page/0`   |   2000 |         500 |            4600 |
+| `/page/1`   |   2000 |         500 |            4601 |
+| `/page/10`  |   2000 |         500 |            4610 |
+| `/page/100` |   2000 |         500 |            4700 |
+| `/page/101` |   2000 |         500 |            4701 |
+| `/page/102` |   2000 |         500 |            4702 |
+| `/page/103` |   2000 |         500 |            4703 |
+| `/page/104` |   2000 |         500 |            4704 |
+| `/page/105` |   2000 |         500 |            4705 |
+| `/page/106` |   2000 |         500 |            4706 |
+
+Время выполнения:
+
+```text
+0.883 sec
+```
+
+Здесь группировка выполняется по `page_url`, а это не ключ шардирования.
+Поэтому одинаковые страницы могут встречаться на разных шардах, и ClickHouse должен объединять частичные результаты агрегации с разных шардов.
+
+Такой запрос требует больше межшардовой обработки, чем группировка по `user_id`.
+
+### JOIN со справочной таблицей
+
+Для проверки JOIN была создана справочная таблица пользователей `user_dict`.
+
+```sql
+CREATE TABLE idz4.user_dict ON CLUSTER cluster_2x2 (
+    user_id UInt64,
+    name    String,
+    segment LowCardinality(String)
+)
+ENGINE = ReplicatedMergeTree(
+    '/clickhouse/tables/{shard}/user_dict',
+    '{replica}'
+)
+ORDER BY user_id;
+```
+
+Также была создана распределённая таблица:
+
+```sql
+CREATE TABLE idz4.user_dict_distributed ON CLUSTER cluster_2x2
+AS idz4.user_dict
+ENGINE = Distributed(
+    'cluster_2x2',
+    'idz4',
+    'user_dict',
+    xxHash64(user_id)
+);
+```
+
+Справочник шардируется по тому же ключу `user_id`, что и таблица событий.
+
+Запрос JOIN:
+
+```sql
+SELECT
+    u.segment,
+    count() AS events_count,
+    uniqExact(e.user_id) AS users_count,
+    round(avg(e.duration_ms), 2) AS avg_duration_ms
+FROM idz4.events_distributed AS e
+INNER JOIN idz4.user_dict AS u
+    ON e.user_id = u.user_id
+GROUP BY u.segment
+ORDER BY events_count DESC;
+```
+
+Результат:
+
+| segment  | events_count | users_count | avg_duration_ms |
+| -------- | -----------: | ----------: | --------------: |
+| new      |       500000 |      125000 |            5098 |
+| regular  |       500000 |      125000 |            5099 |
+| inactive |       500000 |      125000 |            5101 |
+| vip      |       500000 |      125000 |            5100 |
+
+Время выполнения:
+
+```text
+1.870 sec
+```
+
+В данном случае `events` и `user_dict` шардируются по одному ключу `user_id`.
+Это удобно, потому что данные пользователя и его события оказываются на одном шарде. Такой подход уменьшает необходимость пересылать большие объёмы данных между шардами.
+
+Если справочная таблица маленькая, возможен другой подход — broadcast JOIN. В таком случае небольшая таблица или набор ключей рассылается на шарды.
+
+### GLOBAL IN
+
+Пример с `GLOBAL IN`:
+
+```sql
+SELECT
+    count() AS vip_events
+FROM idz4.events_distributed
+WHERE user_id GLOBAL IN (
+    SELECT user_id
+    FROM idz4.user_dict_distributed
+    WHERE segment = 'vip'
+);
+```
+
+Результат:
+
+| vip_events |
+| ---------: |
+|     500000 |
+
+Время выполнения:
+
+```text
+0.631 sec
+```
+
+`GLOBAL IN` сначала строит набор значений, а затем передаёт его на шарды.
+Это полезно, когда нужно отфильтровать большую распределённую таблицу по небольшому справочному набору.
+
+### Вывод
+
+`Distributed`-таблица позволяет выполнять запросы ко всему кластеру как к одной таблице.
+
+Запросы по ключу шардирования `user_id` выполняются логично и предсказуемо, потому что данные одного пользователя находятся на одном шарде.
+
+Запросы не по ключу шардирования, например группировка по `page_url`, требуют объединения частичных результатов с разных шардов.
+
+JOIN лучше проектировать так, чтобы большие таблицы были шардированы по одному ключу. Если это невозможно, можно использовать подходы вроде `GLOBAL IN` или broadcast небольшого справочника.
