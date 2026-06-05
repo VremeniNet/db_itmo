@@ -13,3 +13,4 @@ idz1/   PostgreSQL: структуры данных, нормализация и
 idz2/   ClickHouse: колоночное хранилище, движки и OLAP-аналитика
 idz3/   Репликация в ClickHouse
 idz4/   Шардирование в ClickHouse
+idz5/   ManticoreSearch: полнотекстовый поиск и NoSQL-подход
