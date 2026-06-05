@@ -1,0 +1,58 @@
+Clickstream data generation and distribution check
+
+Rows requested: 2000000
+
+================================================================================
+Insert data through events_distributed
+================================================================================
+ch-s2-r2	9000	0		3	3
+ch-s2-r1	9000	0		2	2
+ch-s1-r1	9000	0		1	1
+ch-s1-r2	9000	0		0	0
+
+================================================================================
+Sync replicas
+================================================================================
+[idz4-ch-s1-r1]
+
+[idz4-ch-s1-r2]
+
+[idz4-ch-s2-r1]
+
+[idz4-ch-s2-r2]
+
+
+================================================================================
+Distribution checks
+================================================================================
+section
+TOTAL THROUGH DISTRIBUTED TABLE
+total_rows
+2000000
+section
+ROWS ON EACH REPLICA
+host	rows
+ch-s1-r1	1000608
+section
+ROWS ON CLUSTER
+host	rows
+ch-s1-r1	1000608
+ch-s1-r2	1000608
+ch-s2-r1	999392
+ch-s2-r2	999392
+section
+USER DISTRIBUTION ON CLUSTER
+host	unique_users	rows
+ch-s1-r1	250152	1000608
+ch-s1-r2	250152	1000608
+ch-s2-r1	249848	999392
+ch-s2-r2	249848	999392
+section
+CHECK THAT ONE USER_ID IS STORED ON ONE SHARD
+user_id	hosts	rows
+1	['ch-s2-r1','ch-s2-r2']	2
+2	['ch-s1-r1','ch-s1-r2']	2
+3	['ch-s2-r2','ch-s2-r1']	2
+100	['ch-s1-r2','ch-s1-r1']	2
+1000	['ch-s2-r2','ch-s2-r1']	2
+7777	['ch-s1-r2','ch-s1-r1']	2
