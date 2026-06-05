@@ -1,0 +1,85 @@
+Faceted search and aggregations
+
+================================================================================
+1. Aggregation by category
+================================================================================
+
+SQL:
+SELECT
+    category,
+    COUNT(*) AS cnt,
+    AVG(price) AS avg_price
+FROM products
+WHERE MATCH('gaming')
+GROUP BY category
+ORDER BY cnt DESC
+
+Result:
+[{
+"columns":[{"category":{"type":"string"}},{"cnt":{"type":"long long"}},{"avg_price":{"type":"double"}}],
+"data":[
+{"category":"Gaming","cnt":20000,"avg_price":6240.500000},
+{"category":"Computers","cnt":20000,"avg_price":66241.000000}
+],
+"total":2,
+"error":"",
+"warning":""
+}]
+
+Elapsed time: 0.7426 sec
+
+================================================================================
+2. FACET by category and brand
+================================================================================
+
+SQL:
+SELECT id, title, price
+FROM products
+WHERE MATCH('gaming')
+LIMIT 10
+FACET category ORDER BY COUNT(*) DESC
+FACET brand ORDER BY COUNT(*) DESC
+
+Result:
+[{
+"columns":[{"id":{"type":"long long"}},{"title":{"type":"string"}},{"price":{"type":"float"}}],
+"data":[
+{"id":5,"title":"Logitech Gaming Mouse 5","price":2995.000000},
+{"id":6,"title":"Xiaomi Gaming Keyboard 6","price":6996.000000},
+{"id":9,"title":"Dell Gaming Laptop 9","price":74999.000000},
+{"id":15,"title":"Logitech Gaming Mouse 15","price":3005.000000},
+{"id":16,"title":"Xiaomi Gaming Keyboard 16","price":7006.000000},
+{"id":19,"title":"Dell Gaming Laptop 19","price":75009.000000},
+{"id":25,"title":"Logitech Gaming Mouse 25","price":3015.000000},
+{"id":26,"title":"Xiaomi Gaming Keyboard 26","price":7016.000000},
+{"id":29,"title":"Dell Gaming Laptop 29","price":75019.000000},
+{"id":35,"title":"Logitech Gaming Mouse 35","price":3025.000000}
+],
+"total":10,
+"error":"",
+"warning":""
+},
+{
+"columns":[{"category":{"type":"string"}},{"count(*)":{"type":"long long"}}],
+"data":[
+{"category":"Gaming","count(*)":20000},
+{"category":"Computers","count(*)":20000}
+],
+"total":2,
+"error":"",
+"warning":""
+},
+{
+"columns":[{"brand":{"type":"string"}},{"count(*)":{"type":"long long"}}],
+"data":[
+{"brand":"Lenovo","count(*)":10000},
+{"brand":"Logitech","count(*)":10000},
+{"brand":"Xiaomi","count(*)":10000},
+{"brand":"Dell","count(*)":10000}
+],
+"total":4,
+"error":"",
+"warning":""
+}]
+
+Elapsed time: 0.3072 sec
