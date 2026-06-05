@@ -1,0 +1,95 @@
+                          section                          
+-----------------------------------------------------------
+ PostgreSQL vs ManticoreSearch full-text search comparison
+(1 строка)
+
+                        section                        
+-------------------------------------------------------
+ ManticoreSearch baseline from checks/basic_search.txt
+(1 строка)
+
+     system      |               query_type               | elapsed_time |     ranking     
+-----------------+----------------------------------------+--------------+-----------------
+ ManticoreSearch | MATCH('wireless bluetooth headphones') | 0.0704 sec   | BM25 / WEIGHT()
+(1 строка)
+
+DROP TABLE
+CREATE TABLE
+INSERT 0 100000
+ALTER TABLE
+CREATE INDEX
+ANALYZE
+         section         
+-------------------------
+ PostgreSQL table loaded
+(1 строка)
+
+ pg_products_count 
+-------------------
+            100000
+(1 строка)
+
+               section               
+-------------------------------------
+ PostgreSQL full-text search results
+(1 строка)
+
+                 title                  |   rank    
+----------------------------------------+-----------
+ Sony Wireless Bluetooth Headphones 20  | 0.7031302
+ Sony Wireless Bluetooth Headphones 30  | 0.7031302
+ Sony Wireless Bluetooth Headphones 40  | 0.7031302
+ Sony Wireless Bluetooth Headphones 50  | 0.7031302
+ Sony Wireless Bluetooth Headphones 60  | 0.7031302
+ Sony Wireless Bluetooth Headphones 70  | 0.7031302
+ Sony Wireless Bluetooth Headphones 80  | 0.7031302
+ Sony Wireless Bluetooth Headphones 90  | 0.7031302
+ Sony Wireless Bluetooth Headphones 100 | 0.7031302
+ Sony Wireless Bluetooth Headphones 10  | 0.7031302
+(10 строк)
+
+          section           
+----------------------------
+ PostgreSQL EXPLAIN ANALYZE
+(1 строка)
+
+                                                                  QUERY PLAN                                                                   
+-----------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=2348.56..2348.58 rows=10 width=32) (actual time=16.746..16.749 rows=10 loops=1)
+   Buffers: shared hit=6394
+   ->  Sort  (cost=2348.56..2350.60 rows=815 width=32) (actual time=16.744..16.746 rows=10 loops=1)
+         Sort Key: (ts_rank(pg_products.tsv, '''wireless'' & ''bluetooth'' & ''headphon'''::tsquery)) DESC
+         Sort Method: top-N heapsort  Memory: 25kB
+         Buffers: shared hit=6394
+         ->  Bitmap Heap Scan on pg_products  (cost=47.29..2330.95 rows=815 width=32) (actual time=4.169..15.244 rows=10000 loops=1)
+               Recheck Cond: (tsv @@ '''wireless'' & ''bluetooth'' & ''headphon'''::tsquery)
+               Heap Blocks: exact=6367
+               Buffers: shared hit=6394
+               ->  Bitmap Index Scan on idx_pg_products_tsv  (cost=0.00..47.09 rows=815 width=0) (actual time=3.437..3.437 rows=10000 loops=1)
+                     Index Cond: (tsv @@ '''wireless'' & ''bluetooth'' & ''headphon'''::tsquery)
+                     Buffers: shared hit=27
+ Planning:
+   Buffers: shared hit=1
+ Planning Time: 0.133 ms
+ Execution Time: 16.950 ms
+(17 строк)
+
+        section         
+------------------------
+ Comparison table draft
+(1 строка)
+
+     characteristic      |               manticore                |                         postgresql                         
+-------------------------+----------------------------------------+------------------------------------------------------------
+ Search engine / DB      | ManticoreSearch                        | PostgreSQL tsvector + GIN
+ Documents               | 100000                                 | 100000
+ Search query            | MATCH('wireless bluetooth headphones') | to_tsquery('english', 'wireless & bluetooth & headphones')
+ Ranking                 | BM25 / WEIGHT()                        | ts_rank
+ Manticore measured time | 0.0704 sec                             | see PostgreSQL EXPLAIN ANALYZE above
+ Morphology              | stem_enru in index settings            | english text search configuration
+ Facets                  | native FACET syntax                    | manual GROUP BY queries
+ JSON attributes         | json field and filters like tags.color | jsonb field and PostgreSQL JSON operators
+ Transactions            | no classic SQL transactions            | yes
+ Best use case           | full-text search in product catalog    | transactional data with built-in search
+(10 строк)
+
