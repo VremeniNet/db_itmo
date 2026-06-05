@@ -112,6 +112,40 @@ services:
       - "8222:8123"
       - "9122:9000"
 
+  ch-s3-r1:
+    image: clickhouse/clickhouse-server:26.5.1.882
+    container_name: idz4-ch-s3-r1
+    hostname: ch-s3-r1
+    depends_on:
+      - keeper1
+      - keeper2
+      - keeper3
+    volumes:
+      - ./config/clickhouse/cluster.xml:/etc/clickhouse-server/config.d/cluster.xml:ro
+      - ./config/clickhouse/s3r1_macros.xml:/etc/clickhouse-server/config.d/macros.xml:ro
+      - ./config/clickhouse/users.xml:/etc/clickhouse-server/users.d/users.xml:ro
+      - ch-s3-r1-data:/var/lib/clickhouse
+    ports:
+      - "8231:8123"
+      - "9131:9000"
+
+  ch-s3-r2:
+    image: clickhouse/clickhouse-server:26.5.1.882
+    container_name: idz4-ch-s3-r2
+    hostname: ch-s3-r2
+    depends_on:
+      - keeper1
+      - keeper2
+      - keeper3
+    volumes:
+      - ./config/clickhouse/cluster.xml:/etc/clickhouse-server/config.d/cluster.xml:ro
+      - ./config/clickhouse/s3r2_macros.xml:/etc/clickhouse-server/config.d/macros.xml:ro
+      - ./config/clickhouse/users.xml:/etc/clickhouse-server/users.d/users.xml:ro
+      - ch-s3-r2-data:/var/lib/clickhouse
+    ports:
+      - "8232:8123"
+      - "9132:9000"
+
 volumes:
   keeper1-data:
   keeper2-data:
@@ -120,3 +154,5 @@ volumes:
   ch-s1-r2-data:
   ch-s2-r1-data:
   ch-s2-r2-data:
+  ch-s3-r1-data:
+  ch-s3-r2-data:

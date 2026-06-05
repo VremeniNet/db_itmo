@@ -1,0 +1,109 @@
+Third shard and resharding demo
+
+New rows inserted after adding third shard: 600000
+
+================================================================================
+Cluster 3x2 info
+================================================================================
+cluster	shard_num	replica_num	host_name	port
+cluster_3x2	1	1	ch-s1-r1	9000
+cluster_3x2	1	2	ch-s1-r2	9000
+cluster_3x2	2	1	ch-s2-r1	9000
+cluster_3x2	2	2	ch-s2-r2	9000
+cluster_3x2	3	1	ch-s3-r1	9000
+cluster_3x2	3	2	ch-s3-r2	9000
+
+================================================================================
+Create local table on new shard and recreate Distributed table
+================================================================================
+ch-s1-r1	9000	0		5	5
+ch-s2-r2	9000	0		4	4
+ch-s3-r1	9000	0		3	0
+ch-s2-r1	9000	0		2	0
+ch-s3-r2	9000	0		1	0
+ch-s1-r2	9000	0		0	0
+ch-s1-r1	9000	0		5	5
+ch-s2-r2	9000	0		4	4
+ch-s2-r1	9000	0		3	2
+ch-s1-r2	9000	0		2	2
+ch-s3-r1	9000	0		1	0
+ch-s3-r2	9000	0		0	0
+ch-s2-r2	9000	0		3	0
+ch-s1-r1	9000	0		2	0
+ch-s2-r1	9000	0		1	0
+ch-s1-r2	9000	0		0	0
+ch-s3-r1	9000	0		5	0
+ch-s3-r2	9000	0		4	0
+ch-s1-r1	9000	0		3	0
+ch-s2-r2	9000	0		2	0
+ch-s1-r2	9000	0		1	0
+ch-s2-r1	9000	0		0	0
+ch-s3-r2	9000	0		5	3
+ch-s3-r1	9000	0		4	3
+ch-s1-r1	9000	0		3	3
+ch-s2-r2	9000	0		2	1
+ch-s2-r1	9000	0		1	1
+ch-s1-r2	9000	0		0	0
+
+================================================================================
+Insert new data through events_distributed after adding third shard
+================================================================================
+
+
+================================================================================
+Sync replicas
+================================================================================
+[idz4-ch-s1-r1]
+
+
+[idz4-ch-s1-r2]
+
+
+[idz4-ch-s2-r1]
+
+
+[idz4-ch-s2-r2]
+
+
+[idz4-ch-s3-r1]
+
+
+[idz4-ch-s3-r2]
+
+
+
+================================================================================
+Distribution after adding third shard
+================================================================================
+section
+TOTAL THROUGH DISTRIBUTED TABLE
+total_rows	new_rows
+2600000	600000
+section
+ALL REPLICAS, OLD AND NEW DATA
+host	total_rows	new_rows	old_rows
+ch-s1-r1	1201096	200488	1000608
+ch-s1-r2	1201096	200488	1000608
+ch-s2-r1	1199164	199772	999392
+ch-s2-r2	1199164	199772	999392
+ch-s3-r1	199740	199740	0
+ch-s3-r2	199740	199740	0
+section
+NEW DATA DISTRIBUTION BY SHARD REPLICAS
+host	new_rows	unique_users
+ch-s1-r1	200488	100244
+ch-s1-r2	200488	100244
+ch-s2-r1	199772	99886
+ch-s2-r2	199772	99886
+ch-s3-r1	199740	99870
+ch-s3-r2	199740	99870
+section
+OLD DATA ON THIRD SHARD
+host	old_rows
+ch-s3-r1	0
+ch-s3-r2	0
+
+Conclusion:
+New rows inserted after changing the Distributed table were routed to 3 shards.
+Old rows were not moved automatically to the new shard.
+To rebalance old data, a separate migration is required: copy data into a new table with the new sharding key and then switch reads to it, or move partitions manually.

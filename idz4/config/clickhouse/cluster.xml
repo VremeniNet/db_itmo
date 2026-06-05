@@ -31,6 +31,49 @@
                 </replica>
             </shard>
         </cluster_2x2>
+                <cluster_3x2>
+            <shard>
+                <internal_replication>true</internal_replication>
+
+                <replica>
+                    <host>ch-s1-r1</host>
+                    <port>9000</port>
+                </replica>
+
+                <replica>
+                    <host>ch-s1-r2</host>
+                    <port>9000</port>
+                </replica>
+            </shard>
+
+            <shard>
+                <internal_replication>true</internal_replication>
+
+                <replica>
+                    <host>ch-s2-r1</host>
+                    <port>9000</port>
+                </replica>
+
+                <replica>
+                    <host>ch-s2-r2</host>
+                    <port>9000</port>
+                </replica>
+            </shard>
+
+            <shard>
+                <internal_replication>true</internal_replication>
+
+                <replica>
+                    <host>ch-s3-r1</host>
+                    <port>9000</port>
+                </replica>
+
+                <replica>
+                    <host>ch-s3-r2</host>
+                    <port>9000</port>
+                </replica>
+            </shard>
+        </cluster_3x2>
     </remote_servers>
 
     <zookeeper>
