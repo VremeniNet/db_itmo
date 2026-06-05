@@ -12,3 +12,4 @@
 idz1/   PostgreSQL: структуры данных, нормализация и денормализация
 idz2/   ClickHouse: колоночное хранилище, движки и OLAP-аналитика
 idz3/   Репликация в ClickHouse
+idz4/   Шардирование в ClickHouse
