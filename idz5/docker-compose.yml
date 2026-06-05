@@ -1,0 +1,27 @@
+services:
+  manticore:
+    image: manticoresearch/manticore:latest
+    container_name: idz5-manticore
+    hostname: manticore
+    ports:
+      - "9306:9306"
+      - "9308:9308"
+    ulimits:
+      nproc: 65535
+      nofile:
+        soft: 65535
+        hard: 65535
+      memlock:
+        soft: -1
+        hard: -1
+    volumes:
+      - manticore-data:/var/lib/manticore
+    networks:
+      - idz5-net
+
+volumes:
+  manticore-data:
+
+networks:
+  idz5-net:
+    name: idz5-net

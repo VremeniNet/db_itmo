@@ -38,3 +38,35 @@ idz5/
     ├── update_delete.txt
     └── pg_vs_manticore.txt
 ```
+## Часть 1. Установка и проверка подключения
+
+ManticoreSearch был запущен в Docker-контейнере `idz5-manticore`.
+
+Для запуска используется файл:
+
+```text
+docker-compose.yml
+```
+
+Контейнер публикует два порта:
+
+- `9306` — MySQL-совместимый протокол;
+- `9308` — HTTP API.
+
+Проверка MySQL-протокола выполнялась командой:
+
+```powershell
+docker run --rm --network idz5-net mysql:8.0 mysql -hmanticore -P9306 --protocol=tcp -e "SHOW TABLES;"
+```
+
+Проверка HTTP API выполнялась командой:
+
+```powershell
+curl.exe -s http://localhost:9308/sql -d "query=SHOW TABLES"
+```
+
+Результаты проверки сохранены в файле:
+
+```text
+checks/connectivity.txt
+```
