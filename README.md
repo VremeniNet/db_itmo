@@ -14,3 +14,4 @@ idz2/   ClickHouse: колоночное хранилище, движки и OLA
 idz3/   Репликация в ClickHouse
 idz4/   Шардирование в ClickHouse
 idz5/   ManticoreSearch: полнотекстовый поиск и NoSQL-подход
+group1/   HA-кластер ClickHouse 2x2 с мониторингом и балансировкой
