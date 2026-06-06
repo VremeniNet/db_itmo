@@ -1,0 +1,221 @@
+Prometheus and Grafana monitoring check
+
+================================================================================
+Prometheus ClickHouse targets
+================================================================================
+instance=ch-s1-r1:9363, health=up, lastError=
+instance=ch-s1-r2:9363, health=up, lastError=
+instance=ch-s2-r1:9363, health=up, lastError=
+instance=ch-s2-r2:9363, health=up, lastError=
+
+
+================================================================================
+ClickHouse targets
+================================================================================
+PromQL: up{job="clickhouse"}
+
+labels={'instance': 'ch-s1-r1:9363', 'job': 'clickhouse'}, value=1
+labels={'instance': 'ch-s2-r1:9363', 'job': 'clickhouse'}, value=1
+labels={'instance': 'ch-s1-r2:9363', 'job': 'clickhouse'}, value=1
+labels={'instance': 'ch-s2-r2:9363', 'job': 'clickhouse'}, value=1
+
+
+================================================================================
+Healthy ClickHouse node count
+================================================================================
+PromQL: sum(up{job="clickhouse"})
+
+labels={}, value=4
+
+
+================================================================================
+MergeTree rows
+================================================================================
+PromQL: ClickHouseAsyncMetrics_TotalRowsOfMergeTreeTables{job="clickhouse"}
+
+labels={'instance': 'ch-s1-r1:9363', 'job': 'clickhouse'}, value=14648795
+labels={'instance': 'ch-s2-r1:9363', 'job': 'clickhouse'}, value=14698765
+labels={'instance': 'ch-s1-r2:9363', 'job': 'clickhouse'}, value=14534054
+labels={'instance': 'ch-s2-r2:9363', 'job': 'clickhouse'}, value=14670681
+
+
+================================================================================
+Queries per second
+================================================================================
+PromQL: rate(ClickHouseProfileEvents_Query{job="clickhouse"}[1m])
+
+labels={'instance': 'ch-s1-r1:9363', 'job': 'clickhouse'}, value=0.5636466117565775
+labels={'instance': 'ch-s2-r1:9363', 'job': 'clickhouse'}, value=0.527282314223895
+labels={'instance': 'ch-s1-r2:9363', 'job': 'clickhouse'}, value=0.5091001654575538
+labels={'instance': 'ch-s2-r2:9363', 'job': 'clickhouse'}, value=0.5454545454545454
+
+
+================================================================================
+Replication queue
+================================================================================
+PromQL: ClickHouseAsyncMetrics_ReplicasMaxQueueSize{job="clickhouse"}
+
+labels={'instance': 'ch-s1-r1:9363', 'job': 'clickhouse'}, value=0
+labels={'instance': 'ch-s2-r1:9363', 'job': 'clickhouse'}, value=0
+labels={'instance': 'ch-s1-r2:9363', 'job': 'clickhouse'}, value=0
+labels={'instance': 'ch-s2-r2:9363', 'job': 'clickhouse'}, value=0
+
+
+================================================================================
+Replication delay
+================================================================================
+PromQL: ClickHouseAsyncMetrics_ReplicasMaxAbsoluteDelay{job="clickhouse"}
+
+labels={'instance': 'ch-s1-r1:9363', 'job': 'clickhouse'}, value=0
+labels={'instance': 'ch-s2-r1:9363', 'job': 'clickhouse'}, value=0
+labels={'instance': 'ch-s1-r2:9363', 'job': 'clickhouse'}, value=0
+labels={'instance': 'ch-s2-r2:9363', 'job': 'clickhouse'}, value=0
+
+
+================================================================================
+Memory tracking
+================================================================================
+PromQL: ClickHouseMetrics_MemoryTracking{job="clickhouse"}
+
+labels={'instance': 'ch-s1-r1:9363', 'job': 'clickhouse'}, value=365712221
+labels={'instance': 'ch-s2-r1:9363', 'job': 'clickhouse'}, value=332590746
+labels={'instance': 'ch-s1-r2:9363', 'job': 'clickhouse'}, value=336571299
+labels={'instance': 'ch-s2-r2:9363', 'job': 'clickhouse'}, value=340264944
+
+
+================================================================================
+system.parts row count verification
+================================================================================
+[group1-ch-s1-r1]
+node	database	table	rows	active_parts
+ch-s1-r1	ha	metrics_local	2500800	3
+
+[group1-ch-s1-r2]
+node	database	table	rows	active_parts
+ch-s1-r2	ha	metrics_local	2500800	3
+
+[group1-ch-s2-r1]
+node	database	table	rows	active_parts
+ch-s2-r1	ha	metrics_local	2499200	3
+
+[group1-ch-s2-r2]
+node	database	table	rows	active_parts
+ch-s2-r2	ha	metrics_local	2499200	3
+
+
+
+================================================================================
+system.replicas verification
+================================================================================
+[group1-ch-s1-r1]
+node	replica_name	total_replicas	active_replicas	queue_size	absolute_delay
+ch-s1-r1	s1r1	2	2	0	0
+
+[group1-ch-s1-r2]
+node	replica_name	total_replicas	active_replicas	queue_size	absolute_delay
+ch-s1-r2	s1r2	2	2	0	0
+
+[group1-ch-s2-r1]
+node	replica_name	total_replicas	active_replicas	queue_size	absolute_delay
+ch-s2-r1	s2r1	2	2	0	0
+
+[group1-ch-s2-r2]
+node	replica_name	total_replicas	active_replicas	queue_size	absolute_delay
+ch-s2-r2	s2r2	2	2	0	0
+
+
+
+================================================================================
+Provisioned ClickHouse datasource
+================================================================================
+{
+  "id": 3,
+  "uid": "clickhouse",
+  "orgId": 1,
+  "name": "ClickHouse",
+  "type": "grafana-clickhouse-datasource",
+  "typeLogoUrl": "public/plugins/grafana-clickhouse-datasource/img/logo.svg",
+  "access": "proxy",
+  "url": "",
+  "user": "",
+  "database": "",
+  "basicAuth": false,
+  "basicAuthUser": "",
+  "withCredentials": false,
+  "isDefault": false,
+  "jsonData": {
+    "defaultDatabase": "ha",
+    "dialTimeout": 10,
+    "host": "ch-s1-r1",
+    "port": 8123,
+    "protocol": "http",
+    "queryTimeout": 60,
+    "secure": false,
+    "username": "default",
+    "validateSql": true
+  },
+  "secureJsonFields": {},
+  "version": 1,
+  "readOnly": true,
+  "apiVersion": ""
+}
+
+
+================================================================================
+ClickHouse datasource health
+================================================================================
+{"message":"Data source is working","status":"OK"}
+
+
+================================================================================
+Grafana health
+================================================================================
+{
+  "database": "ok",
+  "version": "11.6.0",
+  "commit": "d2fdff9ee4d75c74bfd3a97c18a0b8e4d029f06e"
+}
+
+
+================================================================================
+Provisioned Grafana dashboard
+================================================================================
+[
+  {
+    "id": 2,
+    "uid": "clickhouse-ha",
+    "orgId": 1,
+    "title": "ClickHouse HA Cluster",
+    "uri": "db/clickhouse-ha-cluster",
+    "url": "/d/clickhouse-ha/clickhouse-ha-cluster",
+    "slug": "",
+    "type": "dash-db",
+    "tags": [
+      "clickhouse",
+      "ha",
+      "prometheus"
+    ],
+    "isStarred": false,
+    "folderId": 1,
+    "folderUid": "dfob960enzncwf",
+    "folderTitle": "ClickHouse",
+    "folderUrl": "/dashboards/f/dfob960enzncwf/ClickHouse",
+    "sortMeta": 0,
+    "isDeleted": false
+  }
+]
+
+
+================================================================================
+Grafana dashboard panels
+================================================================================
+id=1, title=Rows by table (system.parts), type=table, datasource=clickhouse
+  SQL: SELECT hostName() AS node, database, table, sum(rows) AS rows, count() AS active_parts FROM clusterAllReplicas( 'production', system.parts ) WHERE active AND database = 'ha' GROUP BY node, database, table ORDER BY node, database, table
+id=2, title=Queries per second, type=timeseries, datasource=prometheus
+  PromQL: rate(ClickHouseProfileEvents_Query{job="clickhouse"}[1m])
+id=3, title=Replication status (system.replicas), type=table, datasource=clickhouse
+  SQL: SELECT hostName() AS node, database, table, replica_name, total_replicas, active_replicas, queue_size, inserts_in_queue, merges_in_queue, absolute_delay FROM clusterAllReplicas( 'production', system.replicas ) WHERE database = 'ha' AND table = 'metrics_local' ORDER BY node
+id=4, title=ClickHouse memory usage, type=timeseries, datasource=prometheus
+  PromQL: ClickHouseMetrics_MemoryTracking{job="clickhouse"}
+id=5, title=Available ClickHouse nodes, type=stat, datasource=prometheus
+  PromQL: sum(up{job="clickhouse"})

@@ -571,3 +571,276 @@ Access-лог сохраняется в JSON-формате и содержит:
 Небольшое отличие от идеального распределения связано с текущим положением round-robin и временным исключением восстановленного upstream.
 
 Эксперимент подтвердил, что Nginx продолжает обслуживать запросы при потере одного ClickHouse-узла и автоматически возвращает восстановленный узел в балансировку.
+
+## Часть 4. Мониторинг
+
+Для мониторинга кластера используются:
+
+- Prometheus;
+- Grafana;
+- встроенный Prometheus-эндпоинт ClickHouse;
+- официальный Grafana ClickHouse datasource.
+
+Prometheus доступен на порту:
+
+```text
+9095
+```
+
+Grafana доступна на порту:
+
+```text
+3005
+```
+
+### Сбор метрик ClickHouse
+
+На каждом ClickHouse-узле включён встроенный Prometheus-эндпоинт:
+
+```text
+/metrics
+```
+
+Prometheus собирает метрики с четырёх адресов:
+
+```text
+ch-s1-r1:9363
+ch-s1-r2:9363
+ch-s2-r1:9363
+ch-s2-r2:9363
+```
+
+Проверка показала, что все четыре target имеют состояние:
+
+```text
+health = up
+```
+
+PromQL-запрос:
+
+```promql
+sum(up{job="clickhouse"})
+```
+
+вернул:
+
+```text
+4
+```
+
+Это означает, что Prometheus успешно собирает метрики со всех четырёх ClickHouse-узлов.
+
+### Источники данных Grafana
+
+Grafana автоматически получает два datasource через provisioning:
+
+- `Prometheus`;
+- `ClickHouse`.
+
+Prometheus datasource используется для временных рядов и технических метрик.
+
+ClickHouse datasource используется для SQL-запросов к системным таблицам:
+
+- `system.parts`;
+- `system.replicas`.
+
+ClickHouse datasource настроен для подключения к:
+
+```text
+ch-s1-r1:8123
+```
+
+Проверка datasource через Grafana API вернула:
+
+```text
+status: OK
+message: Data source is working
+```
+
+### Автоматическое provisioning
+
+Конфигурация datasource находится в файле:
+
+```text
+monitoring/provisioning/datasources.yml
+```
+
+Конфигурация загрузки дашбордов находится в файле:
+
+```text
+monitoring/provisioning/dashboards.yml
+```
+
+Дашборд экспортирован в JSON:
+
+```text
+monitoring/dashboards/clickhouse.json
+```
+
+После запуска Grafana дашборд `ClickHouse HA Cluster` появляется автоматически. Ручная настройка через веб-интерфейс не требуется.
+
+### Панели дашборда
+
+Дашборд содержит пять панелей.
+
+#### 1. Количество строк по таблицам
+
+Источник данных:
+
+```text
+ClickHouse
+```
+
+Панель выполняет SQL-запрос к `system.parts`:
+
+```sql
+SELECT
+    hostName() AS node,
+    database,
+    table,
+    sum(rows) AS rows,
+    count() AS active_parts
+FROM clusterAllReplicas(
+    'production',
+    system.parts
+)
+WHERE active
+  AND database = 'ha'
+GROUP BY
+    node,
+    database,
+    table
+ORDER BY
+    node,
+    database,
+    table;
+```
+
+Фактическое количество строк:
+
+| Узел | Таблица | Строки | Активные части |
+|---|---|---:|---:|
+| `ch-s1-r1` | `metrics_local` | 2500800 | 3 |
+| `ch-s1-r2` | `metrics_local` | 2500800 | 3 |
+| `ch-s2-r1` | `metrics_local` | 2499200 | 3 |
+| `ch-s2-r2` | `metrics_local` | 2499200 | 3 |
+
+#### 2. Количество запросов в секунду
+
+Источник данных:
+
+```text
+Prometheus
+```
+
+PromQL:
+
+```promql
+rate(ClickHouseProfileEvents_Query{job="clickhouse"}[1m])
+```
+
+Панель показывает интенсивность запросов отдельно для каждого ClickHouse-узла.
+
+#### 3. Статус репликации
+
+Источник данных:
+
+```text
+ClickHouse
+```
+
+Панель выполняет запрос к `system.replicas`:
+
+```sql
+SELECT
+    hostName() AS node,
+    database,
+    table,
+    replica_name,
+    total_replicas,
+    active_replicas,
+    queue_size,
+    inserts_in_queue,
+    merges_in_queue,
+    absolute_delay
+FROM clusterAllReplicas(
+    'production',
+    system.replicas
+)
+WHERE database = 'ha'
+  AND table = 'metrics_local'
+ORDER BY node;
+```
+
+На всех четырёх узлах получены значения:
+
+| Показатель | Значение |
+|---|---:|
+| `total_replicas` | 2 |
+| `active_replicas` | 2 |
+| `queue_size` | 0 |
+| `absolute_delay` | 0 |
+
+Это означает, что реплики синхронизированы и не имеют отставания.
+
+#### 4. Использование памяти
+
+Источник данных:
+
+```text
+Prometheus
+```
+
+PromQL:
+
+```promql
+ClickHouseMetrics_MemoryTracking{job="clickhouse"}
+```
+
+Панель показывает память, используемую каждым ClickHouse-узлом.
+
+#### 5. Количество доступных ClickHouse-узлов
+
+Источник данных:
+
+```text
+Prometheus
+```
+
+PromQL:
+
+```promql
+sum(up{job="clickhouse"})
+```
+
+В нормальном состоянии панель показывает:
+
+```text
+4
+```
+
+### Автоматизированная проверка
+
+Для проверки мониторинга используется скрипт:
+
+```text
+scripts/check_monitoring.py
+```
+
+Результат сохраняется в файле:
+
+```text
+checks/monitoring_status.txt
+```
+
+Скрипт проверяет:
+
+- состояние Prometheus targets;
+- доступность всех ClickHouse-узлов;
+- наличие метрик QPS, памяти и репликации;
+- реальные данные из `system.parts`;
+- реальные данные из `system.replicas`;
+- состояние Grafana;
+- состояние ClickHouse datasource;
+- наличие provisioned-дашборда;
+- наличие всех требуемых панелей.
