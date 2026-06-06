@@ -1,0 +1,61 @@
+<clickhouse>
+    <listen_host>0.0.0.0</listen_host>
+    <interserver_http_port>9009</interserver_http_port>
+
+    <remote_servers>
+        <production>
+            <shard>
+                <internal_replication>true</internal_replication>
+
+                <replica>
+                    <host>ch-s1-r1</host>
+                    <port>9000</port>
+                    <user>default</user>
+                </replica>
+
+                <replica>
+                    <host>ch-s1-r2</host>
+                    <port>9000</port>
+                    <user>default</user>
+                </replica>
+            </shard>
+
+            <shard>
+                <internal_replication>true</internal_replication>
+
+                <replica>
+                    <host>ch-s2-r1</host>
+                    <port>9000</port>
+                    <user>default</user>
+                </replica>
+
+                <replica>
+                    <host>ch-s2-r2</host>
+                    <port>9000</port>
+                    <user>default</user>
+                </replica>
+            </shard>
+        </production>
+    </remote_servers>
+
+    <zookeeper>
+        <node index="1">
+            <host>keeper1</host>
+            <port>9181</port>
+        </node>
+
+        <node index="2">
+            <host>keeper2</host>
+            <port>9181</port>
+        </node>
+
+        <node index="3">
+            <host>keeper3</host>
+            <port>9181</port>
+        </node>
+    </zookeeper>
+
+    <distributed_ddl>
+        <path>/clickhouse/task_queue/ddl</path>
+    </distributed_ddl>
+</clickhouse>

@@ -1,0 +1,48 @@
+HA cluster automated status check
+
+Running services:
+ch-s1-r1
+ch-s1-r2
+ch-s2-r1
+ch-s2-r2
+grafana
+keeper1
+keeper2
+keeper3
+nginx
+prometheus
+
+All 10 services are running.
+
+Nginx health:
+URL: http://127.0.0.1:8085/health
+Result: {"status":"ok"}
+
+ClickHouse through Nginx:
+URL: http://127.0.0.1:8085/?query=SELECT%201%20FORMAT%20TabSeparated
+Result: 1
+
+Prometheus readiness:
+URL: http://127.0.0.1:9095/-/ready
+Result: Prometheus Server is Ready.
+
+Grafana health:
+URL: http://127.0.0.1:3005/api/health
+Result: {
+  "database": "ok",
+  "version": "11.6.0",
+  "commit": "d2fdff9ee4d75c74bfd3a97c18a0b8e4d029f06e"
+}
+
+docker compose ps:
+NAME                IMAGE                                     COMMAND                  SERVICE      CREATED       STATUS                 PORTS
+group1-ch-s1-r1     clickhouse/clickhouse-server:26.5.1.882   "/entrypoint.sh"         ch-s1-r1     2 hours ago   Up 2 hours (healthy)   9009/tcp, 0.0.0.0:8411->8123/tcp, 0.0.0.0:9411->9000/tcp
+group1-ch-s1-r2     clickhouse/clickhouse-server:26.5.1.882   "/entrypoint.sh"         ch-s1-r2     2 hours ago   Up 2 hours (healthy)   9009/tcp, 0.0.0.0:8412->8123/tcp, 0.0.0.0:9412->9000/tcp
+group1-ch-s2-r1     clickhouse/clickhouse-server:26.5.1.882   "/entrypoint.sh"         ch-s2-r1     2 hours ago   Up 2 hours (healthy)   9009/tcp, 0.0.0.0:8421->8123/tcp, 0.0.0.0:9421->9000/tcp
+group1-ch-s2-r2     clickhouse/clickhouse-server:26.5.1.882   "/entrypoint.sh"         ch-s2-r2     2 hours ago   Up 2 hours (healthy)   9009/tcp, 0.0.0.0:8422->8123/tcp, 0.0.0.0:9422->9000/tcp
+group1-grafana      grafana/grafana:11.6.0                    "/run.sh"                grafana      2 hours ago   Up 2 hours             0.0.0.0:3005->3000/tcp
+group1-keeper1      clickhouse/clickhouse-server:26.5.1.882   "/entrypoint.sh clic…"   keeper1      2 hours ago   Up 2 hours             8123/tcp, 9000/tcp, 9009/tcp, 0.0.0.0:9481->9181/tcp
+group1-keeper2      clickhouse/clickhouse-server:26.5.1.882   "/entrypoint.sh clic…"   keeper2      2 hours ago   Up 2 hours             8123/tcp, 9000/tcp, 9009/tcp, 0.0.0.0:9482->9181/tcp
+group1-keeper3      clickhouse/clickhouse-server:26.5.1.882   "/entrypoint.sh clic…"   keeper3      2 hours ago   Up 2 hours             8123/tcp, 9000/tcp, 9009/tcp, 0.0.0.0:9483->9181/tcp
+group1-nginx        nginx:1.27-alpine                         "/docker-entrypoint.…"   nginx        2 hours ago   Up 2 hours (healthy)   0.0.0.0:8085->80/tcp
+group1-prometheus   prom/prometheus:v3.2.1                    "/bin/prometheus --c…"   prometheus   2 hours ago   Up 2 hours             0.0.0.0:9095->9090/tcp

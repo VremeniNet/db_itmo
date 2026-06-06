@@ -1,0 +1,17 @@
+global:
+  scrape_interval: 5s
+  evaluation_interval: 5s
+
+scrape_configs:
+  - job_name: clickhouse
+    metrics_path: /metrics
+
+    static_configs:
+      - targets:
+          - ch-s1-r1:9363
+          - ch-s1-r2:9363
+          - ch-s2-r1:9363
+          - ch-s2-r2:9363
+
+        labels:
+          cluster: production

@@ -64,15 +64,9 @@ group1/
 │   │   ├── cluster.xml
 │   │   ├── prometheus.xml
 │   │   ├── users.xml
-│   │   └── macros/
-│   │       ├── s1r1.xml
-│   │       ├── s1r2.xml
-│   │       ├── s2r1.xml
-│   │       └── s2r2.xml
+│   │   └── macros.xml
 │   ├── keeper/
-│   │   ├── keeper1.xml
-│   │   ├── keeper2.xml
-│   │   └── keeper3.xml
+│   │   └── keeper.xml
 │   ├── nginx/
 │   │   ├── nginx.conf
 │   │   └── upstream.conf
@@ -97,4 +91,84 @@ group1/
     ├── nginx_failover.txt
     ├── fault_scenarios.txt
     └── grafana_screenshots_NOT_ALLOWED.md
+```
+## Часть 1. Инфраструктура как код
+
+Вся инфраструктура описана в файле:
+
+```text
+docker-compose.yml
+```
+
+Кластер состоит из 10 сервисов:
+
+* 4 узла ClickHouse;
+* 3 узла ClickHouse Keeper;
+* Nginx;
+* Prometheus;
+* Grafana.
+
+Для запуска используются переменные из файла `.env`. Пример настроек находится в `.env.example`.
+
+Конфигурация шаблонизирована. В `docker-compose.yml` используются общие YAML-шаблоны:
+
+```text
+x-clickhouse-common
+x-clickhouse-environment
+x-keeper-common
+```
+
+Все ClickHouse-узлы используют одинаковые файлы конфигурации. Значения шарда, реплики и имени узла передаются через переменные окружения:
+
+```text
+CLICKHOUSE_SHARD
+CLICKHOUSE_REPLICA
+CLICKHOUSE_HOST
+```
+
+Единый файл `config/clickhouse/macros.xml` получает эти значения через `from_env`.
+
+Для всех Keeper-узлов также используется один файл:
+
+```text
+config/keeper/keeper.xml
+```
+
+Уникальный `server_id` передаётся через переменную:
+
+```text
+KEEPER_SERVER_ID
+```
+
+Таким образом, в проекте нет четырёх копий одного ClickHouse-конфига и трёх копий одного Keeper-конфига.
+
+Для управления инфраструктурой создан Makefile с командами:
+
+```text
+make up
+make down
+make status
+make test
+make logs
+make restart
+```
+
+Команда `make test` запускает скрипт:
+
+```text
+scripts/run_tests.py
+```
+
+Скрипт проверяет:
+
+* состояние всех 10 сервисов;
+* доступность Nginx;
+* выполнение ClickHouse-запроса через Nginx;
+* готовность Prometheus;
+* доступность Grafana.
+
+Результат проверки сохраняется в:
+
+```text
+checks/cluster_status.txt
 ```

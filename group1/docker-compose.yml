@@ -1,0 +1,272 @@
+name: group1-ha
+
+x-clickhouse-environment: &clickhouse-environment
+  CLICKHOUSE_CLUSTER: production
+  CLICKHOUSE_SKIP_USER_SETUP: "1"
+
+x-clickhouse-common: &clickhouse-common
+  image: ${CLICKHOUSE_IMAGE}
+  restart: unless-stopped
+  networks:
+    - ha-net
+  depends_on:
+    - keeper1
+    - keeper2
+    - keeper3
+  configs:
+    - source: clickhouse_cluster
+      target: /etc/clickhouse-server/config.d/cluster.xml
+    - source: clickhouse_macros
+      target: /etc/clickhouse-server/config.d/macros.xml
+    - source: clickhouse_prometheus
+      target: /etc/clickhouse-server/config.d/prometheus.xml
+    - source: clickhouse_users
+      target: /etc/clickhouse-server/users.d/zz-default-user.xml
+  healthcheck:
+    test:
+      - CMD-SHELL
+      - clickhouse-client --query "SELECT 1" >/dev/null 2>&1
+    interval: 5s
+    timeout: 3s
+    retries: 20
+    start_period: 10s
+
+x-keeper-common: &keeper-common
+  image: ${CLICKHOUSE_IMAGE}
+  restart: unless-stopped
+  command:
+    - clickhouse-keeper
+    - --config-file=/etc/clickhouse-keeper/keeper_config.xml
+  networks:
+    - ha-net
+  configs:
+    - source: keeper_config
+      target: /etc/clickhouse-keeper/keeper_config.xml
+
+services:
+  keeper1:
+    <<: *keeper-common
+    container_name: group1-keeper1
+    hostname: keeper1
+    environment:
+      KEEPER_SERVER_ID: "1"
+    volumes:
+      - keeper1-data:/var/lib/clickhouse-keeper
+    ports:
+      - "9481:9181"
+
+  keeper2:
+    <<: *keeper-common
+    container_name: group1-keeper2
+    hostname: keeper2
+    environment:
+      KEEPER_SERVER_ID: "2"
+    volumes:
+      - keeper2-data:/var/lib/clickhouse-keeper
+    ports:
+      - "9482:9181"
+
+  keeper3:
+    <<: *keeper-common
+    container_name: group1-keeper3
+    hostname: keeper3
+    environment:
+      KEEPER_SERVER_ID: "3"
+    volumes:
+      - keeper3-data:/var/lib/clickhouse-keeper
+    ports:
+      - "9483:9181"
+
+  ch-s1-r1:
+    <<: *clickhouse-common
+    container_name: group1-ch-s1-r1
+    hostname: ch-s1-r1
+    environment:
+      <<: *clickhouse-environment
+      CLICKHOUSE_SHARD: shard1
+      CLICKHOUSE_REPLICA: s1r1
+      CLICKHOUSE_HOST: ch-s1-r1
+    volumes:
+      - ch-s1-r1-data:/var/lib/clickhouse
+    ports:
+      - "8411:8123"
+      - "9411:9000"
+
+  ch-s1-r2:
+    <<: *clickhouse-common
+    container_name: group1-ch-s1-r2
+    hostname: ch-s1-r2
+    environment:
+      <<: *clickhouse-environment
+      CLICKHOUSE_SHARD: shard1
+      CLICKHOUSE_REPLICA: s1r2
+      CLICKHOUSE_HOST: ch-s1-r2
+    volumes:
+      - ch-s1-r2-data:/var/lib/clickhouse
+    ports:
+      - "8412:8123"
+      - "9412:9000"
+
+  ch-s2-r1:
+    <<: *clickhouse-common
+    container_name: group1-ch-s2-r1
+    hostname: ch-s2-r1
+    environment:
+      <<: *clickhouse-environment
+      CLICKHOUSE_SHARD: shard2
+      CLICKHOUSE_REPLICA: s2r1
+      CLICKHOUSE_HOST: ch-s2-r1
+    volumes:
+      - ch-s2-r1-data:/var/lib/clickhouse
+    ports:
+      - "8421:8123"
+      - "9421:9000"
+
+  ch-s2-r2:
+    <<: *clickhouse-common
+    container_name: group1-ch-s2-r2
+    hostname: ch-s2-r2
+    environment:
+      <<: *clickhouse-environment
+      CLICKHOUSE_SHARD: shard2
+      CLICKHOUSE_REPLICA: s2r2
+      CLICKHOUSE_HOST: ch-s2-r2
+    volumes:
+      - ch-s2-r2-data:/var/lib/clickhouse
+    ports:
+      - "8422:8123"
+      - "9422:9000"
+
+  nginx:
+    image: ${NGINX_IMAGE}
+    container_name: group1-nginx
+    hostname: nginx
+    restart: unless-stopped
+    networks:
+      - ha-net
+    depends_on:
+      ch-s1-r1:
+        condition: service_healthy
+      ch-s1-r2:
+        condition: service_healthy
+      ch-s2-r1:
+        condition: service_healthy
+      ch-s2-r2:
+        condition: service_healthy
+    configs:
+      - source: nginx_config
+        target: /etc/nginx/nginx.conf
+      - source: nginx_upstream
+        target: /etc/nginx/conf.d/upstream.conf
+    volumes:
+      - nginx-logs:/var/log/nginx
+    ports:
+      - "${NGINX_PORT}:80"
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - wget -qO- http://127.0.0.1/health | grep -q ok
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  prometheus:
+    image: ${PROMETHEUS_IMAGE}
+    container_name: group1-prometheus
+    hostname: prometheus
+    restart: unless-stopped
+    networks:
+      - ha-net
+    depends_on:
+      ch-s1-r1:
+        condition: service_healthy
+      ch-s1-r2:
+        condition: service_healthy
+      ch-s2-r1:
+        condition: service_healthy
+      ch-s2-r2:
+        condition: service_healthy
+    configs:
+      - source: prometheus_config
+        target: /etc/prometheus/prometheus.yml
+    volumes:
+      - prometheus-data:/prometheus
+    ports:
+      - "${PROMETHEUS_PORT}:9090"
+
+  grafana:
+    image: ${GRAFANA_IMAGE}
+    container_name: group1-grafana
+    hostname: grafana
+    restart: unless-stopped
+    networks:
+      - ha-net
+    depends_on:
+      - prometheus
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    configs:
+      - source: grafana_datasources
+        target: /etc/grafana/provisioning/datasources/datasources.yml
+      - source: grafana_dashboards
+        target: /etc/grafana/provisioning/dashboards/dashboards.yml
+      - source: grafana_dashboard_json
+        target: /var/lib/grafana/dashboards/clickhouse.json
+    volumes:
+      - grafana-data:/var/lib/grafana
+    ports:
+      - "${GRAFANA_PORT}:3000"
+
+networks:
+  ha-net:
+    name: group1-ha-net
+
+volumes:
+  keeper1-data:
+  keeper2-data:
+  keeper3-data:
+
+  ch-s1-r1-data:
+  ch-s1-r2-data:
+  ch-s2-r1-data:
+  ch-s2-r2-data:
+
+  nginx-logs:
+  prometheus-data:
+  grafana-data:
+
+configs:
+  keeper_config:
+    file: ./config/keeper/keeper.xml
+
+  clickhouse_cluster:
+    file: ./config/clickhouse/cluster.xml
+
+  clickhouse_macros:
+    file: ./config/clickhouse/macros.xml
+
+  clickhouse_prometheus:
+    file: ./config/clickhouse/prometheus.xml
+
+  clickhouse_users:
+    file: ./config/clickhouse/users.xml
+
+  nginx_config:
+    file: ./config/nginx/nginx.conf
+
+  nginx_upstream:
+    file: ./config/nginx/upstream.conf
+
+  prometheus_config:
+    file: ./config/prometheus/prometheus.yml
+
+  grafana_datasources:
+    file: ./monitoring/provisioning/datasources.yml
+
+  grafana_dashboards:
+    file: ./monitoring/provisioning/dashboards.yml
+
+  grafana_dashboard_json:
+    file: ./monitoring/dashboards/clickhouse.json
