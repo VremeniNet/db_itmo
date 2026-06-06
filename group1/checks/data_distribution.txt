@@ -1,0 +1,135 @@
+ClickHouse HA telemetry data generation
+
+Rows requested: 5000000
+
+================================================================================
+Clean existing telemetry data
+================================================================================
+
+ch-s2-r1	9000	0		3	1
+ch-s1-r1	9000	0		2	1
+ch-s2-r2	9000	0		1	1
+ch-s1-r2	9000	0		0	0
+
+================================================================================
+Insert data through metrics_distributed
+================================================================================
+
+Insert completed successfully.
+Insert elapsed time: 12.268 sec
+
+================================================================================
+Synchronize ReplicatedMergeTree replicas
+================================================================================
+
+[group1-ch-s1-r1]
+Replica synchronized.
+
+[group1-ch-s1-r2]
+Replica synchronized.
+
+[group1-ch-s2-r1]
+Replica synchronized.
+
+[group1-ch-s2-r2]
+Replica synchronized.
+
+
+================================================================================
+Global count through metrics_distributed
+================================================================================
+
+distributed_rows
+5000000
+
+================================================================================
+Local data on every ClickHouse node
+================================================================================
+
+[group1-ch-s1-r1]
+node	rows	unique_hosts	min_timestamp	max_timestamp
+ch-s1-r1	2500800	50016	2025-01-01 00:00:00	2025-01-30 23:59:57
+
+[group1-ch-s1-r2]
+node	rows	unique_hosts	min_timestamp	max_timestamp
+ch-s1-r2	2500800	50016	2025-01-01 00:00:00	2025-01-30 23:59:57
+
+[group1-ch-s2-r1]
+node	rows	unique_hosts	min_timestamp	max_timestamp
+ch-s2-r1	2499200	49984	2025-01-01 00:00:01	2025-01-30 23:59:59
+
+[group1-ch-s2-r2]
+node	rows	unique_hosts	min_timestamp	max_timestamp
+ch-s2-r2	2499200	49984	2025-01-01 00:00:01	2025-01-30 23:59:59
+
+Sum of one replica from each shard: 5000000
+
+================================================================================
+Replication status
+================================================================================
+
+[group1-ch-s1-r1]
+node	replica_name	is_leader	total_replicas	active_replicas	queue_size	inserts_in_queue	merges_in_queue	log_pointer	last_queue_update
+ch-s1-r1	s1r1	1	2	2	0	0	0	3	2026-06-06 14:42:24
+
+[group1-ch-s1-r2]
+node	replica_name	is_leader	total_replicas	active_replicas	queue_size	inserts_in_queue	merges_in_queue	log_pointer	last_queue_update
+ch-s1-r2	s1r2	1	2	2	0	0	0	3	2026-06-06 14:42:24
+
+[group1-ch-s2-r1]
+node	replica_name	is_leader	total_replicas	active_replicas	queue_size	inserts_in_queue	merges_in_queue	log_pointer	last_queue_update
+ch-s2-r1	s2r1	1	2	2	0	0	0	3	2026-06-06 14:42:24
+
+[group1-ch-s2-r2]
+node	replica_name	is_leader	total_replicas	active_replicas	queue_size	inserts_in_queue	merges_in_queue	log_pointer	last_queue_update
+ch-s2-r2	s2r2	1	2	2	0	0	0	3	2026-06-06 14:42:24
+
+
+================================================================================
+Check that one host is stored on one shard and both replicas
+================================================================================
+
+[group1-ch-s1-r1]
+host	rows
+host-000002	50
+host-010000	50
+
+[group1-ch-s1-r2]
+host	rows
+host-000002	50
+host-010000	50
+
+[group1-ch-s2-r1]
+host	rows
+host-000001	50
+host-000003	50
+host-001000	50
+host-099999	50
+
+[group1-ch-s2-r2]
+host	rows
+host-000001	50
+host-000003	50
+host-001000	50
+host-099999	50
+
+
+================================================================================
+Analytical query through Distributed
+================================================================================
+
+metric_name	measurements	avg_value	min_value	max_value
+cpu_usage	1000000	49.98	0	99.95
+disk_usage	1000000	54.97	10.02	99.97
+memory_usage	1000000	89.96	20.01	159.96
+network_in	1000000	25000.05	0.3	49999.8
+network_out	1000000	19600.15	0.4	39999.9
+
+Expected conditions:
+- distributed_rows = 5000000
+- sum of one replica from each shard = 5000000
+- replicas inside one shard have equal row counts
+- active_replicas = 2
+- queue_size = 0
+- each sample host exists only on one shard
+- the same host exists on both replicas of that shard
