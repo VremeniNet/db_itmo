@@ -1,0 +1,319 @@
+UPDATE / DELETE / REPLACE demo in ManticoreSearch
+
+================================================================================
+1. Product before UPDATE
+================================================================================
+
+SQL:
+SELECT id, title, price, rating
+FROM products
+WHERE id = 4
+
+Result:
+[{
+"columns":[{"id":{"type":"long long"}},{"title":{"type":"string"}},{"price":{"type":"float"}},{"rating":{"type":"float"}}],
+"data":[
+{"id":4,"title":"Asus Smart Phone 4","price":39994.000000,"rating":3.900000}
+],
+"total":1,
+"error":"",
+"warning":""
+}]
+
+Elapsed time: 0.2683 sec
+
+================================================================================
+2. UPDATE price and rating
+================================================================================
+
+SQL:
+UPDATE products
+SET price = 29999, rating = 4.9
+WHERE id = 4
+
+Result:
+[{"total":1,"error":"","warning":"secondary index disabled for attribute(s) 'price,rating' after attribute update; run ALTER TABLE REBUILD SECONDARY"}]
+
+Elapsed time: 0.0511 sec
+
+================================================================================
+3. Product after UPDATE
+================================================================================
+
+SQL:
+SELECT id, title, price, rating
+FROM products
+WHERE id = 4
+
+Result:
+[{
+"columns":[{"id":{"type":"long long"}},{"title":{"type":"string"}},{"price":{"type":"float"}},{"rating":{"type":"float"}}],
+"data":[
+{"id":4,"title":"Asus Smart Phone 4","price":29999.000000,"rating":4.900000}
+],
+"total":1,
+"error":"",
+"warning":""
+}]
+
+Elapsed time: 0.0195 sec
+
+================================================================================
+4. Insert document for DELETE demo
+================================================================================
+
+SQL:
+REPLACE INTO products (
+    id,
+    title,
+    description,
+    category,
+    brand,
+    price,
+    rating,
+    reviews_count,
+    in_stock,
+    tags,
+    created_at
+)
+VALUES (
+    200001,
+    'Delete Demo Unique Headphones',
+    'Temporary product for delete demonstration with unique delete marker.',
+    'Audio',
+    'DemoBrand',
+    9999,
+    4.5,
+    10,
+    1,
+    '{"color":"black","origin":"delete_demo"}',
+    1735689600
+)
+
+Result:
+[{"total":1,"error":"","warning":""}]
+
+Elapsed time: 0.1317 sec
+
+================================================================================
+5. Search document before DELETE
+================================================================================
+
+SQL:
+SELECT id, title
+FROM products
+WHERE MATCH('delete demo unique')
+LIMIT 10
+
+Result:
+[{
+"columns":[{"id":{"type":"long long"}},{"title":{"type":"string"}}],
+"data":[
+{"id":200001,"title":"Delete Demo Unique Headphones"}
+],
+"total":1,
+"error":"",
+"warning":""
+}]
+
+Elapsed time: 0.0631 sec
+
+================================================================================
+6. DELETE document
+================================================================================
+
+SQL:
+DELETE FROM products
+WHERE id = 200001
+
+Result:
+[{"total":1,"error":"","warning":""}]
+
+Elapsed time: 0.0187 sec
+
+================================================================================
+7. Search document after DELETE
+================================================================================
+
+SQL:
+SELECT id, title
+FROM products
+WHERE MATCH('delete demo unique')
+LIMIT 10
+
+Result:
+[{
+"columns":[{"id":{"type":"long long"}},{"title":{"type":"string"}}],
+"data":[
+
+],
+"total":0,
+"error":"",
+"warning":""
+}]
+
+Elapsed time: 0.0191 sec
+
+================================================================================
+8. Insert old document for REPLACE demo
+================================================================================
+
+SQL:
+REPLACE INTO products (
+    id,
+    title,
+    description,
+    category,
+    brand,
+    price,
+    rating,
+    reviews_count,
+    in_stock,
+    tags,
+    created_at
+)
+VALUES (
+    200002,
+    'Replace Demo Old Product',
+    'Old version of product before replace operation.',
+    'Accessories',
+    'DemoBrand',
+    1000,
+    3.0,
+    1,
+    1,
+    '{"color":"white","version":"old"}',
+    1735689600
+)
+
+Result:
+[{"total":1,"error":"","warning":""}]
+
+Elapsed time: 0.0647 sec
+
+================================================================================
+9. Document before REPLACE
+================================================================================
+
+SQL:
+SELECT id, title, price, rating, tags
+FROM products
+WHERE id = 200002
+
+Result:
+[{
+"columns":[{"id":{"type":"long long"}},{"title":{"type":"string"}},{"price":{"type":"float"}},{"rating":{"type":"float"}},{"tags":{"type":"json"}}],
+"data":[
+{"id":200002,"title":"Replace Demo Old Product","price":1000.000000,"rating":3.000000,"tags":"{\"color\":\"white\",\"version\":\"old\"}"}
+],
+"total":1,
+"error":"",
+"warning":""
+}]
+
+Elapsed time: 0.0101 sec
+
+================================================================================
+10. REPLACE document with new content
+================================================================================
+
+SQL:
+REPLACE INTO products (
+    id,
+    title,
+    description,
+    category,
+    brand,
+    price,
+    rating,
+    reviews_count,
+    in_stock,
+    tags,
+    created_at
+)
+VALUES (
+    200002,
+    'Replace Demo New Product',
+    'New version of product after replace operation.',
+    'Accessories',
+    'DemoBrand',
+    2500,
+    4.8,
+    25,
+    1,
+    '{"color":"blue","version":"new"}',
+    1735689600
+)
+
+Result:
+[{"total":1,"error":"","warning":""}]
+
+Elapsed time: 0.0742 sec
+
+================================================================================
+11. Document after REPLACE
+================================================================================
+
+SQL:
+SELECT id, title, price, rating, tags
+FROM products
+WHERE id = 200002
+
+Result:
+[{
+"columns":[{"id":{"type":"long long"}},{"title":{"type":"string"}},{"price":{"type":"float"}},{"rating":{"type":"float"}},{"tags":{"type":"json"}}],
+"data":[
+{"id":200002,"title":"Replace Demo New Product","price":2500.000000,"rating":4.800000,"tags":"{\"color\":\"blue\",\"version\":\"new\"}"}
+],
+"total":1,
+"error":"",
+"warning":""
+}]
+
+Elapsed time: 0.0083 sec
+
+================================================================================
+12. Search old content after REPLACE
+================================================================================
+
+SQL:
+SELECT id, title
+FROM products
+WHERE MATCH('replace demo old')
+LIMIT 10
+
+Result:
+[{
+"columns":[{"id":{"type":"long long"}},{"title":{"type":"string"}}],
+"data":[
+
+],
+"total":0,
+"error":"",
+"warning":""
+}]
+
+Elapsed time: 0.0098 sec
+
+================================================================================
+13. Search new content after REPLACE
+================================================================================
+
+SQL:
+SELECT id, title
+FROM products
+WHERE MATCH('replace demo new')
+LIMIT 10
+
+Result:
+[{
+"columns":[{"id":{"type":"long long"}},{"title":{"type":"string"}}],
+"data":[
+{"id":200002,"title":"Replace Demo New Product"}
+],
+"total":1,
+"error":"",
+"warning":""
+}]
+
+Elapsed time: 0.0096 sec

@@ -596,3 +596,166 @@ PostgreSQL хорошо подходит, если полнотекстовый 
 ManticoreSearch лучше подходит как отдельный поисковый движок для каталога товаров. Он даёт удобный полнотекстовый поиск, релевантность через `WEIGHT()`, фасеты, JSON-атрибуты и real-time индекс, в который можно быстро добавлять и обновлять документы.
 
 Для интернет-магазина PostgreSQL можно использовать как основную базу данных, а ManticoreSearch — как отдельный поисковый слой для каталога.
+
+## Часть 7. Обновление и удаление документов
+
+Для проверки NoSQL-аспекта ManticoreSearch были выполнены операции:
+
+- `UPDATE`;
+- `DELETE`;
+- `REPLACE`.
+
+SQL-запросы находятся в файле:
+
+```text
+sql/04_update_delete.sql
+```
+
+Результаты сохранены в файле:
+
+```text
+checks/update_delete.txt
+```
+
+### UPDATE
+
+Сначала был выбран товар с `id = 4`:
+
+| id | title | price | rating |
+|---:|---|---:|---:|
+| 4 | Asus Smart Phone 4 | 39994 | 3.9 |
+
+Затем была выполнена команда:
+
+```sql
+UPDATE products
+SET price = 29999, rating = 4.9
+WHERE id = 4;
+```
+
+После обновления товар получил новые значения:
+
+| id | title | price | rating |
+|---:|---|---:|---:|
+| 4 | Asus Smart Phone 4 | 29999 | 4.9 |
+
+ManticoreSearch обновил атрибуты документа.  
+При этом в ответе появилось предупреждение про вторичный индекс:
+
+```text
+secondary index disabled for attribute(s) 'price,rating' after attribute update; run ALTER TABLE REBUILD SECONDARY
+```
+
+Это означает, что после массовых обновлений атрибутов может потребоваться перестроить вторичные индексы.
+
+### DELETE
+
+Для демонстрации удаления был добавлен временный документ:
+
+```sql
+REPLACE INTO products (...)
+VALUES (
+    200001,
+    'Delete Demo Unique Headphones',
+    ...
+);
+```
+
+До удаления поиск находил документ:
+
+| id | title |
+|---:|---|
+| 200001 | Delete Demo Unique Headphones |
+
+После этого была выполнена команда:
+
+```sql
+DELETE FROM products
+WHERE id = 200001;
+```
+
+После удаления поиск по запросу:
+
+```sql
+SELECT id, title
+FROM products
+WHERE MATCH('delete demo unique')
+LIMIT 10;
+```
+
+вернул пустой результат:
+
+```text
+total: 0
+```
+
+Это подтверждает, что документ был удалён из индекса.
+
+### REPLACE
+
+Для проверки `REPLACE` сначала был добавлен документ:
+
+| id | title | price | rating | tags |
+|---:|---|---:|---:|---|
+| 200002 | Replace Demo Old Product | 1000 | 3.0 | `{"color":"white","version":"old"}` |
+
+Затем была выполнена команда `REPLACE INTO` с тем же `id = 200002`, но с новым содержимым:
+
+```sql
+REPLACE INTO products (...)
+VALUES (
+    200002,
+    'Replace Demo New Product',
+    ...
+);
+```
+
+После `REPLACE` документ изменился:
+
+| id | title | price | rating | tags |
+|---:|---|---:|---:|---|
+| 200002 | Replace Demo New Product | 2500 | 4.8 | `{"color":"blue","version":"new"}` |
+
+Поиск старого содержимого:
+
+```sql
+SELECT id, title
+FROM products
+WHERE MATCH('replace demo old')
+LIMIT 10;
+```
+
+вернул пустой результат.
+
+Поиск нового содержимого:
+
+```sql
+SELECT id, title
+FROM products
+WHERE MATCH('replace demo new')
+LIMIT 10;
+```
+
+нашёл документ:
+
+| id | title |
+|---:|---|
+| 200002 | Replace Demo New Product |
+
+### Отличие от PostgreSQL
+
+В PostgreSQL `UPDATE`, `DELETE` и `INSERT` обычно выполняются внутри транзакционной модели.  
+Можно использовать `BEGIN`, `COMMIT`, `ROLLBACK`, ограничения целостности и связи между таблицами.
+
+В ManticoreSearch эти операции работают иначе.  
+ManticoreSearch ориентирован не на транзакционную обработку, а на быстрый поиск и обновление документов в индексе.
+
+Основные отличия:
+
+- нет классических SQL-транзакций как в PostgreSQL;
+- документ можно быстро обновить, удалить или заменить по `id`;
+- `REPLACE` заменяет документ целиком;
+- структура больше похожа на работу с поисковым индексом, а не с реляционной таблицей;
+- в кластере возможна eventual consistency, то есть реплики могут синхронизироваться не строго мгновенно.
+
+Вывод: ManticoreSearch удобно использовать как поисковый слой для каталога товаров, где нужно быстро искать, фильтровать и обновлять документы. PostgreSQL лучше подходит для основной транзакционной базы данных.
