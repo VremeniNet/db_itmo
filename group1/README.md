@@ -172,3 +172,94 @@ scripts/run_tests.py
 ```text
 checks/cluster_status.txt
 ```
+
+## Часть 2. ClickHouse-кластер
+
+В конфигурации `remote_servers` создан кластер `production`.
+
+Кластер содержит:
+
+- 2 шарда;
+- по 2 реплики в каждом шарде;
+- всего 4 узла ClickHouse.
+
+Топология:
+
+| Шард | Реплика | Узел |
+|---:|---:|---|
+| 1 | 1 | `ch-s1-r1` |
+| 1 | 2 | `ch-s1-r2` |
+| 2 | 1 | `ch-s2-r1` |
+| 2 | 2 | `ch-s2-r2` |
+
+DDL находится в файле:
+
+```text
+sql/01_create_tables.sql
+```
+
+### Локальная таблица
+
+Для физического хранения телеметрии создана таблица `ha.metrics_local`:
+
+```sql
+CREATE TABLE ha.metrics_local
+ON CLUSTER production
+(
+    timestamp   DateTime,
+    host        LowCardinality(String),
+    metric_name LowCardinality(String),
+    value       Float64
+)
+ENGINE = ReplicatedMergeTree(
+    '/clickhouse/tables/{shard}/metrics_local',
+    '{replica}'
+)
+PARTITION BY toYYYYMM(timestamp)
+ORDER BY (host, metric_name, timestamp);
+```
+
+Таблица содержит:
+
+- `timestamp` — время измерения;
+- `host` — источник телеметрии;
+- `metric_name` — название метрики;
+- `value` — числовое значение.
+
+Путь в ClickHouse Keeper содержит макрос `{shard}`. Поэтому две реплики одного шарда используют общий журнал репликации.
+
+Макрос `{replica}` отличается на каждом узле и задаёт уникальное имя реплики.
+
+### Распределённая таблица
+
+Поверх локальной таблицы создана таблица `ha.metrics_distributed`:
+
+```sql
+CREATE TABLE ha.metrics_distributed
+ON CLUSTER production
+AS ha.metrics_local
+ENGINE = Distributed(
+    'production',
+    'ha',
+    'metrics_local',
+    xxHash64(host)
+);
+```
+
+`metrics_distributed` сама не хранит данные. Она направляет вставки и запросы в локальные таблицы двух шардов.
+
+Ключом шардирования выбран:
+
+```sql
+xxHash64(host)
+```
+
+Все измерения одного хоста попадают на один шард. Это удобно для запросов, группирующих телеметрию по источнику.
+
+Внутри выбранного шарда данные копируются между двумя репликами с помощью `ReplicatedMergeTree`.
+
+Проверочные запросы находятся в файле:
+
+```text
+sql/02_test_queries.sql
+```
