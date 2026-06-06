@@ -1,0 +1,207 @@
+Nginx round-robin and ClickHouse failover test
+
+Stopped node during test: group1-ch-s1-r2
+
+================================================================================
+Initial Docker Compose status
+================================================================================
+
+NAME                IMAGE                                     COMMAND                  SERVICE      CREATED       STATUS                       PORTS
+group1-ch-s1-r1     clickhouse/clickhouse-server:26.5.1.882   "/entrypoint.sh"         ch-s1-r1     4 hours ago   Up 59 minutes (healthy)      9009/tcp, 0.0.0.0:8411->8123/tcp, 0.0.0.0:9411->9000/tcp
+group1-ch-s1-r2     clickhouse/clickhouse-server:26.5.1.882   "/entrypoint.sh"         ch-s1-r2     4 hours ago   Up 3 minutes (healthy)       9009/tcp, 0.0.0.0:8412->8123/tcp, 0.0.0.0:9412->9000/tcp
+group1-ch-s2-r1     clickhouse/clickhouse-server:26.5.1.882   "/entrypoint.sh"         ch-s2-r1     4 hours ago   Up About an hour (healthy)   9009/tcp, 0.0.0.0:8421->8123/tcp, 0.0.0.0:9421->9000/tcp
+group1-ch-s2-r2     clickhouse/clickhouse-server:26.5.1.882   "/entrypoint.sh"         ch-s2-r2     4 hours ago   Up 59 minutes (healthy)      9009/tcp, 0.0.0.0:8422->8123/tcp, 0.0.0.0:9422->9000/tcp
+group1-grafana      grafana/grafana:11.6.0                    "/run.sh"                grafana      4 hours ago   Up 59 minutes                0.0.0.0:3005->3000/tcp
+group1-keeper1      clickhouse/clickhouse-server:26.5.1.882   "/entrypoint.sh clic…"   keeper1      4 hours ago   Up 59 minutes                8123/tcp, 9000/tcp, 9009/tcp, 0.0.0.0:9481->9181/tcp
+group1-keeper2      clickhouse/clickhouse-server:26.5.1.882   "/entrypoint.sh clic…"   keeper2      4 hours ago   Up About an hour             8123/tcp, 9000/tcp, 9009/tcp, 0.0.0.0:9482->9181/tcp
+group1-keeper3      clickhouse/clickhouse-server:26.5.1.882   "/entrypoint.sh clic…"   keeper3      4 hours ago   Up About an hour             8123/tcp, 9000/tcp, 9009/tcp, 0.0.0.0:9483->9181/tcp
+group1-nginx        nginx:1.27-alpine                         "/docker-entrypoint.…"   nginx        4 hours ago   Up 59 minutes (healthy)      0.0.0.0:8085->80/tcp
+group1-prometheus   prom/prometheus:v3.2.1                    "/bin/prometheus --c…"   prometheus   4 hours ago   Up 59 minutes                0.0.0.0:9095->9090/tcp
+
+================================================================================
+Round-robin before node failure
+================================================================================
+
+Request 01: ch-s1-r1
+Request 02: ch-s1-r2
+Request 03: ch-s2-r1
+Request 04: ch-s2-r2
+Request 05: ch-s1-r1
+Request 06: ch-s1-r2
+Request 07: ch-s2-r1
+Request 08: ch-s2-r2
+Request 09: ch-s1-r1
+Request 10: ch-s1-r2
+Request 11: ch-s2-r1
+Request 12: ch-s2-r2
+Request 13: ch-s1-r1
+Request 14: ch-s1-r2
+Request 15: ch-s2-r1
+Request 16: ch-s2-r2
+
+Response distribution:
+ch-s1-r1: 4
+ch-s1-r2: 4
+ch-s2-r1: 4
+ch-s2-r2: 4
+
+================================================================================
+Distributed query before node failure
+================================================================================
+
+5000000
+
+================================================================================
+Stop ClickHouse node group1-ch-s1-r2
+================================================================================
+
+group1-ch-s1-r2
+
+================================================================================
+Requests while one ClickHouse node is stopped
+================================================================================
+
+Request 01: ch-s2-r1
+Request 02: ch-s2-r2
+Request 03: ch-s2-r1
+Request 04: ch-s1-r1
+Request 05: ch-s2-r1
+Request 06: ch-s2-r2
+Request 07: ch-s2-r1
+Request 08: ch-s1-r1
+Request 09: ch-s2-r2
+Request 10: ch-s2-r1
+Request 11: ch-s1-r1
+Request 12: ch-s2-r2
+Request 13: ch-s2-r1
+Request 14: ch-s1-r1
+Request 15: ch-s2-r2
+Request 16: ch-s2-r1
+Request 17: ch-s1-r1
+Request 18: ch-s2-r2
+Request 19: ch-s1-r1
+Request 20: ch-s2-r1
+
+Response distribution:
+ch-s1-r1: 6
+ch-s2-r1: 8
+ch-s2-r2: 6
+
+================================================================================
+Distributed query while one node is stopped
+================================================================================
+
+5000000
+
+================================================================================
+Nginx JSON access log during failover
+================================================================================
+
+{"time":"2026-06-06T15:06:40+00:00","remote_addr":"127.0.0.1","request":"GET /health HTTP/1.1","status":200,"request_time":0.000,"upstream_addr":"","upstream_status":"","upstream_response_time":""}
+{"time":"2026-06-06T15:06:45+00:00","remote_addr":"127.0.0.1","request":"GET /health HTTP/1.1","status":200,"request_time":0.000,"upstream_addr":"","upstream_status":"","upstream_response_time":""}
+{"time":"2026-06-06T15:06:48+00:00","remote_addr":"172.23.0.1","request":"GET /?query=SELECT%20hostName%28%29%20FORMAT%20TabSeparated HTTP/1.1","status":200,"request_time":0.058,"upstream_addr":"172.23.0.9:8123","upstream_status":"200","upstream_response_time":"0.058"}
+{"time":"2026-06-06T15:06:49+00:00","remote_addr":"172.23.0.1","request":"GET /?query=SELECT%20hostName%28%29%20FORMAT%20TabSeparated HTTP/1.1","status":200,"request_time":0.034,"upstream_addr":"172.23.0.8:8123","upstream_status":"200","upstream_response_time":"0.033"}
+{"time":"2026-06-06T15:06:49+00:00","remote_addr":"172.23.0.1","request":"GET /?query=SELECT%20hostName%28%29%20FORMAT%20TabSeparated HTTP/1.1","status":200,"request_time":0.039,"upstream_addr":"172.23.0.2:8123","upstream_status":"200","upstream_response_time":"0.038"}
+{"time":"2026-06-06T15:06:49+00:00","remote_addr":"172.23.0.1","request":"GET /?query=SELECT%20hostName%28%29%20FORMAT%20TabSeparated HTTP/1.1","status":200,"request_time":0.031,"upstream_addr":"172.23.0.5:8123","upstream_status":"200","upstream_response_time":"0.031"}
+{"time":"2026-06-06T15:06:49+00:00","remote_addr":"172.23.0.1","request":"GET /?query=SELECT%20hostName%28%29%20FORMAT%20TabSeparated HTTP/1.1","status":200,"request_time":0.007,"upstream_addr":"172.23.0.9:8123","upstream_status":"200","upstream_response_time":"0.008"}
+{"time":"2026-06-06T15:06:49+00:00","remote_addr":"172.23.0.1","request":"GET /?query=SELECT%20hostName%28%29%20FORMAT%20TabSeparated HTTP/1.1","status":200,"request_time":0.010,"upstream_addr":"172.23.0.8:8123","upstream_status":"200","upstream_response_time":"0.010"}
+{"time":"2026-06-06T15:06:49+00:00","remote_addr":"172.23.0.1","request":"GET /?query=SELECT%20hostName%28%29%20FORMAT%20TabSeparated HTTP/1.1","status":200,"request_time":0.011,"upstream_addr":"172.23.0.2:8123","upstream_status":"200","upstream_response_time":"0.012"}
+{"time":"2026-06-06T15:06:50+00:00","remote_addr":"172.23.0.1","request":"GET /?query=SELECT%20hostName%28%29%20FORMAT%20TabSeparated HTTP/1.1","status":200,"request_time":0.011,"upstream_addr":"172.23.0.5:8123","upstream_status":"200","upstream_response_time":"0.010"}
+{"time":"2026-06-06T15:06:50+00:00","remote_addr":"172.23.0.1","request":"GET /?query=SELECT%20hostName%28%29%20FORMAT%20TabSeparated HTTP/1.1","status":200,"request_time":0.014,"upstream_addr":"172.23.0.9:8123","upstream_status":"200","upstream_response_time":"0.014"}
+{"time":"2026-06-06T15:06:50+00:00","remote_addr":"172.23.0.1","request":"GET /?query=SELECT%20hostName%28%29%20FORMAT%20TabSeparated HTTP/1.1","status":200,"request_time":0.072,"upstream_addr":"172.23.0.8:8123","upstream_status":"200","upstream_response_time":"0.073"}
+{"time":"2026-06-06T15:06:50+00:00","remote_addr":"127.0.0.1","request":"GET /health HTTP/1.1","status":200,"request_time":0.000,"upstream_addr":"","upstream_status":"","upstream_response_time":""}
+{"time":"2026-06-06T15:06:50+00:00","remote_addr":"172.23.0.1","request":"GET /?query=SELECT%20hostName%28%29%20FORMAT%20TabSeparated HTTP/1.1","status":200,"request_time":0.012,"upstream_addr":"172.23.0.2:8123","upstream_status":"200","upstream_response_time":"0.012"}
+{"time":"2026-06-06T15:06:50+00:00","remote_addr":"172.23.0.1","request":"GET /?query=SELECT%20hostName%28%29%20FORMAT%20TabSeparated HTTP/1.1","status":200,"request_time":0.025,"upstream_addr":"172.23.0.5:8123","upstream_status":"200","upstream_response_time":"0.024"}
+{"time":"2026-06-06T15:06:51+00:00","remote_addr":"172.23.0.1","request":"GET /?query=SELECT%20hostName%28%29%20FORMAT%20TabSeparated HTTP/1.1","status":200,"request_time":0.008,"upstream_addr":"172.23.0.9:8123","upstream_status":"200","upstream_response_time":"0.008"}
+{"time":"2026-06-06T15:06:51+00:00","remote_addr":"172.23.0.1","request":"GET /?query=SELECT%20hostName%28%29%20FORMAT%20TabSeparated HTTP/1.1","status":200,"request_time":0.009,"upstream_addr":"172.23.0.8:8123","upstream_status":"200","upstream_response_time":"0.009"}
+{"time":"2026-06-06T15:06:51+00:00","remote_addr":"172.23.0.1","request":"GET /?query=SELECT%20hostName%28%29%20FORMAT%20TabSeparated HTTP/1.1","status":200,"request_time":0.011,"upstream_addr":"172.23.0.2:8123","upstream_status":"200","upstream_response_time":"0.012"}
+{"time":"2026-06-06T15:06:51+00:00","remote_addr":"172.23.0.1","request":"GET /?query=SELECT%20hostName%28%29%20FORMAT%20TabSeparated HTTP/1.1","status":200,"request_time":0.014,"upstream_addr":"172.23.0.5:8123","upstream_status":"200","upstream_response_time":"0.013"}
+{"time":"2026-06-06T15:06:51+00:00","remote_addr":"172.23.0.1","request":"GET /?query=SELECT%20count%28%29%0AFROM%20ha.metrics_distributed%0AFORMAT%20TabSeparated HTTP/1.1","status":200,"request_time":0.152,"upstream_addr":"172.23.0.9:8123","upstream_status":"200","upstream_response_time":"0.153"}
+{"time":"2026-06-06T15:06:55+00:00","remote_addr":"127.0.0.1","request":"GET /health HTTP/1.1","status":200,"request_time":0.000,"upstream_addr":"","upstream_status":"","upstream_response_time":""}
+{"time":"2026-06-06T15:07:00+00:00","remote_addr":"127.0.0.1","request":"GET /health HTTP/1.1","status":200,"request_time":0.000,"upstream_addr":"","upstream_status":"","upstream_response_time":""}
+2026/06/06 15:07:05 [error] 31#31: *787 upstream timed out (110: Operation timed out) while connecting to upstream, client: 172.23.0.1, server: _, request: "GET /?query=SELECT%20hostName%28%29%20FORMAT%20TabSeparated HTTP/1.1", upstream: "http://172.23.0.8:8123/?query=SELECT%20hostName%28%29%20FORMAT%20TabSeparated", host: "127.0.0.1:8085"
+{"time":"2026-06-06T15:07:05+00:00","remote_addr":"172.23.0.1","request":"GET /?query=SELECT%20hostName%28%29%20FORMAT%20TabSeparated HTTP/1.1","status":200,"request_time":2.016,"upstream_addr":"172.23.0.8:8123, 172.23.0.2:8123","upstream_status":"504, 200","upstream_response_time":"2.002, 0.015"}
+{"time":"2026-06-06T15:07:05+00:00","remote_addr":"172.23.0.1","request":"GET /?query=SELECT%20hostName%28%29%20FORMAT%20TabSeparated HTTP/1.1","status":200,"request_time":0.015,"upstream_addr":"172.23.0.5:8123","upstream_status":"200","upstream_response_time":"0.014"}
+{"time":"2026-06-06T15:07:05+00:00","remote_addr":"172.23.0.1","request":"GET /?query=SELECT%20hostName%28%29%20FORMAT%20TabSeparated HTTP/1.1","status":200,"request_time":0.006,"upstream_addr":"172.23.0.2:8123","upstream_status":"200","upstream_response_time":"0.006"}
+{"time":"2026-06-06T15:07:05+00:00","remote_addr":"127.0.0.1","request":"GET /health HTTP/1.1","status":200,"request_time":0.000,"upstream_addr":"","upstream_status":"","upstream_response_time":""}
+{"time":"2026-06-06T15:07:05+00:00","remote_addr":"172.23.0.1","request":"GET /?query=SELECT%20hostName%28%29%20FORMAT%20TabSeparated HTTP/1.1","status":200,"request_time":0.011,"upstream_addr":"172.23.0.9:8123","upstream_status":"200","upstream_response_time":"0.011"}
+2026/06/06 15:07:08 [error] 33#33: *796 upstream timed out (110: Operation timed out) while connecting to upstream, client: 172.23.0.1, server: _, request: "GET /?query=SELECT%20hostName%28%29%20FORMAT%20TabSeparated HTTP/1.1", upstream: "http://172.23.0.8:8123/?query=SELECT%20hostName%28%29%20FORMAT%20TabSeparated", host: "127.0.0.1:8085"
+{"time":"2026-06-06T15:07:08+00:00","remote_addr":"172.23.0.1","request":"GET /?query=SELECT%20hostName%28%29%20FORMAT%20TabSeparated HTTP/1.1","status":200,"request_time":2.007,"upstream_addr":"172.23.0.8:8123, 172.23.0.2:8123","upstream_status":"504, 200","upstream_response_time":"2.002, 0.005"}
+{"time":"2026-06-06T15:07:08+00:00","remote_addr":"172.23.0.1","request":"GET /?query=SELECT%20hostName%28%29%20FORMAT%20TabSeparated HTTP/1.1","status":200,"request_time":0.009,"upstream_addr":"172.23.0.5:8123","upstream_status":"200","upstream_response_time":"0.009"}
+{"time":"2026-06-06T15:07:08+00:00","remote_addr":"172.23.0.1","request":"GET /?query=SELECT%20hostName%28%29%20FORMAT%20TabSeparated HTTP/1.1","status":200,"request_time":0.003,"upstream_addr":"172.23.0.2:8123","upstream_status":"200","upstream_response_time":"0.004"}
+{"time":"2026-06-06T15:07:08+00:00","remote_addr":"172.23.0.1","request":"GET /?query=SELECT%20hostName%28%29%20FORMAT%20TabSeparated HTTP/1.1","status":200,"request_time":0.003,"upstream_addr":"172.23.0.9:8123","upstream_status":"200","upstream_response_time":"0.003"}
+{"time":"2026-06-06T15:07:08+00:00","remote_addr":"172.23.0.1","request":"GET /?query=SELECT%20hostName%28%29%20FORMAT%20TabSeparated HTTP/1.1","status":200,"request_time":0.008,"upstream_addr":"172.23.0.5:8123","upstream_status":"200","upstream_response_time":"0.008"}
+2026/06/06 15:07:10 [warn] 33#33: *804 upstream server temporarily disabled while connecting to upstream, client: 172.23.0.1, server: _, request: "GET /?query=SELECT%20hostName%28%29%20FORMAT%20TabSeparated HTTP/1.1", upstream: "http://172.23.0.8:8123/?query=SELECT%20hostName%28%29%20FORMAT%20TabSeparated", host: "127.0.0.1:8085"
+2026/06/06 15:07:10 [error] 33#33: *804 upstream timed out (110: Operation timed out) while connecting to upstream, client: 172.23.0.1, server: _, request: "GET /?query=SELECT%20hostName%28%29%20FORMAT%20TabSeparated HTTP/1.1", upstream: "http://172.23.0.8:8123/?query=SELECT%20hostName%28%29%20FORMAT%20TabSeparated", host: "127.0.0.1:8085"
+{"time":"2026-06-06T15:07:10+00:00","remote_addr":"127.0.0.1","request":"GET /health HTTP/1.1","status":200,"request_time":0.000,"upstream_addr":"","upstream_status":"","upstream_response_time":""}
+{"time":"2026-06-06T15:07:10+00:00","remote_addr":"172.23.0.1","request":"GET /?query=SELECT%20hostName%28%29%20FORMAT%20TabSeparated HTTP/1.1","status":200,"request_time":2.042,"upstream_addr":"172.23.0.8:8123, 172.23.0.2:8123","upstream_status":"504, 200","upstream_response_time":"2.001, 0.041"}
+{"time":"2026-06-06T15:07:11+00:00","remote_addr":"172.23.0.1","request":"GET /?query=SELECT%20hostName%28%29%20FORMAT%20TabSeparated HTTP/1.1","status":200,"request_time":0.043,"upstream_addr":"172.23.0.9:8123","upstream_status":"200","upstream_response_time":"0.043"}
+{"time":"2026-06-06T15:07:11+00:00","remote_addr":"172.23.0.1","request":"GET /?query=SELECT%20hostName%28%29%20FORMAT%20TabSeparated HTTP/1.1","status":200,"request_time":0.237,"upstream_addr":"172.23.0.5:8123","upstream_status":"200","upstream_response_time":"0.236"}
+{"time":"2026-06-06T15:07:11+00:00","remote_addr":"172.23.0.1","request":"GET /?query=SELECT%20hostName%28%29%20FORMAT%20TabSeparated HTTP/1.1","status":200,"request_time":0.097,"upstream_addr":"172.23.0.2:8123","upstream_status":"200","upstream_response_time":"0.096"}
+{"time":"2026-06-06T15:07:11+00:00","remote_addr":"172.23.0.1","request":"GET /?query=SELECT%20hostName%28%29%20FORMAT%20TabSeparated HTTP/1.1","status":200,"request_time":0.086,"upstream_addr":"172.23.0.9:8123","upstream_status":"200","upstream_response_time":"0.087"}
+{"time":"2026-06-06T15:07:12+00:00","remote_addr":"172.23.0.1","request":"GET /?query=SELECT%20hostName%28%29%20FORMAT%20TabSeparated HTTP/1.1","status":200,"request_time":0.094,"upstream_addr":"172.23.0.5:8123","upstream_status":"200","upstream_response_time":"0.095"}
+{"time":"2026-06-06T15:07:12+00:00","remote_addr":"172.23.0.1","request":"GET /?query=SELECT%20hostName%28%29%20FORMAT%20TabSeparated HTTP/1.1","status":200,"request_time":0.009,"upstream_addr":"172.23.0.2:8123","upstream_status":"200","upstream_response_time":"0.009"}
+{"time":"2026-06-06T15:07:12+00:00","remote_addr":"172.23.0.1","request":"GET /?query=SELECT%20hostName%28%29%20FORMAT%20TabSeparated HTTP/1.1","status":200,"request_time":0.004,"upstream_addr":"172.23.0.9:8123","upstream_status":"200","upstream_response_time":"0.003"}
+{"time":"2026-06-06T15:07:12+00:00","remote_addr":"172.23.0.1","request":"GET /?query=SELECT%20hostName%28%29%20FORMAT%20TabSeparated HTTP/1.1","status":200,"request_time":0.005,"upstream_addr":"172.23.0.5:8123","upstream_status":"200","upstream_response_time":"0.004"}
+{"time":"2026-06-06T15:07:12+00:00","remote_addr":"172.23.0.1","request":"GET /?query=SELECT%20hostName%28%29%20FORMAT%20TabSeparated HTTP/1.1","status":200,"request_time":0.009,"upstream_addr":"172.23.0.9:8123","upstream_status":"200","upstream_response_time":"0.008"}
+2026/06/06 15:07:15 [error] 23#23: *817 upstream timed out (110: Operation timed out) while connecting to upstream, client: 172.23.0.1, server: _, request: "GET /?query=SELECT%20hostName%28%29%20FORMAT%20TabSeparated HTTP/1.1", upstream: "http://172.23.0.8:8123/?query=SELECT%20hostName%28%29%20FORMAT%20TabSeparated", host: "127.0.0.1:8085"
+{"time":"2026-06-06T15:07:15+00:00","remote_addr":"172.23.0.1","request":"GET /?query=SELECT%20hostName%28%29%20FORMAT%20TabSeparated HTTP/1.1","status":200,"request_time":2.008,"upstream_addr":"172.23.0.8:8123, 172.23.0.2:8123","upstream_status":"504, 200","upstream_response_time":"2.002, 0.005"}
+{"time":"2026-06-06T15:07:15+00:00","remote_addr":"172.23.0.1","request":"GET /?query=SELECT%20count%28%29%0AFROM%20ha.metrics_distributed%0AFORMAT%20TabSeparated HTTP/1.1","status":200,"request_time":0.044,"upstream_addr":"172.23.0.5:8123","upstream_status":"200","upstream_response_time":"0.044"}
+
+================================================================================
+Start ClickHouse node group1-ch-s1-r2
+================================================================================
+
+group1-ch-s1-r2
+group1-ch-s1-r2 is ready
+
+================================================================================
+Round-robin after node recovery
+================================================================================
+
+Request 01: ch-s2-r1
+Request 02: ch-s1-r1
+Request 03: ch-s2-r2
+Request 04: ch-s1-r2
+Request 05: ch-s2-r1
+Request 06: ch-s1-r1
+Request 07: ch-s1-r2
+Request 08: ch-s2-r1
+Request 09: ch-s2-r2
+Request 10: ch-s1-r1
+Request 11: ch-s1-r2
+Request 12: ch-s2-r1
+Request 13: ch-s2-r2
+Request 14: ch-s1-r1
+Request 15: ch-s1-r2
+Request 16: ch-s2-r1
+
+Response distribution:
+ch-s1-r1: 4
+ch-s1-r2: 4
+ch-s2-r1: 5
+ch-s2-r2: 3
+
+================================================================================
+Final Docker Compose status
+================================================================================
+
+NAME                IMAGE                                     COMMAND                  SERVICE      CREATED       STATUS                       PORTS
+group1-ch-s1-r1     clickhouse/clickhouse-server:26.5.1.882   "/entrypoint.sh"         ch-s1-r1     4 hours ago   Up About an hour (healthy)   9009/tcp, 0.0.0.0:8411->8123/tcp, 0.0.0.0:9411->9000/tcp
+group1-ch-s1-r2     clickhouse/clickhouse-server:26.5.1.882   "/entrypoint.sh"         ch-s1-r2     4 hours ago   Up 51 seconds (healthy)      9009/tcp, 0.0.0.0:8412->8123/tcp, 0.0.0.0:9412->9000/tcp
+group1-ch-s2-r1     clickhouse/clickhouse-server:26.5.1.882   "/entrypoint.sh"         ch-s2-r1     4 hours ago   Up About an hour (healthy)   9009/tcp, 0.0.0.0:8421->8123/tcp, 0.0.0.0:9421->9000/tcp
+group1-ch-s2-r2     clickhouse/clickhouse-server:26.5.1.882   "/entrypoint.sh"         ch-s2-r2     4 hours ago   Up About an hour (healthy)   9009/tcp, 0.0.0.0:8422->8123/tcp, 0.0.0.0:9422->9000/tcp
+group1-grafana      grafana/grafana:11.6.0                    "/run.sh"                grafana      4 hours ago   Up About an hour             0.0.0.0:3005->3000/tcp
+group1-keeper1      clickhouse/clickhouse-server:26.5.1.882   "/entrypoint.sh clic…"   keeper1      4 hours ago   Up About an hour             8123/tcp, 9000/tcp, 9009/tcp, 0.0.0.0:9481->9181/tcp
+group1-keeper2      clickhouse/clickhouse-server:26.5.1.882   "/entrypoint.sh clic…"   keeper2      4 hours ago   Up About an hour             8123/tcp, 9000/tcp, 9009/tcp, 0.0.0.0:9482->9181/tcp
+group1-keeper3      clickhouse/clickhouse-server:26.5.1.882   "/entrypoint.sh clic…"   keeper3      4 hours ago   Up About an hour             8123/tcp, 9000/tcp, 9009/tcp, 0.0.0.0:9483->9181/tcp
+group1-nginx        nginx:1.27-alpine                         "/docker-entrypoint.…"   nginx        4 hours ago   Up About an hour (healthy)   0.0.0.0:8085->80/tcp
+group1-prometheus   prom/prometheus:v3.2.1                    "/bin/prometheus --c…"   prometheus   4 hours ago   Up About an hour             0.0.0.0:9095->9090/tcp
+
+Expected conditions:
+- before failure requests reach all 4 ClickHouse nodes
+- while ch-s1-r2 is stopped all HTTP requests still succeed
+- stopped ch-s1-r2 is absent from successful responses
+- distributed count remains 5000000
+- JSON access log contains upstream_addr
+- after recovery ch-s1-r2 returns to round-robin
