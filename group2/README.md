@@ -117,3 +117,81 @@ group2/
 10. Реализовать end-to-end demo-сценарий.
 11. Добавить Grafana provisioning.
 12. Выполнить реальные сравнительные замеры.
+
+## Часть 1. Инфраструктура
+
+Вся инфраструктура запускается через Docker Compose.
+
+Обязательные сервисы:
+
+| Сервис      | Назначение                              |
+| ----------- | --------------------------------------- |
+| `postgres`  | OLTP-ядро e-commerce платформы          |
+| `ch-s1-r1`  | Первая реплика первого ClickHouse-шарда |
+| `ch-s1-r2`  | Вторая реплика первого ClickHouse-шарда |
+| `ch-s2-r1`  | Первая реплика второго ClickHouse-шарда |
+| `ch-s2-r2`  | Вторая реплика второго ClickHouse-шарда |
+| `keeper1`   | Первый узел ClickHouse Keeper           |
+| `keeper2`   | Второй узел ClickHouse Keeper           |
+| `keeper3`   | Третий узел ClickHouse Keeper           |
+| `manticore` | Полнотекстовый поиск по отзывам         |
+| `grafana`   | Аналитический и мониторинговый дашборд  |
+
+Всего используется 10 сервисов.
+
+ClickHouse-кластер называется:
+
+```text
+cluster_2x2
+```
+
+Он содержит два шарда и две реплики в каждом шарде.
+
+Для ClickHouse-узлов используется единый шаблон конфигурации. Значения шарда и реплики передаются через переменные окружения:
+
+```text
+CLICKHOUSE_SHARD
+CLICKHOUSE_REPLICA
+CLICKHOUSE_HOST
+```
+
+Для трёх Keeper также используется единый файл конфигурации. Уникальный идентификатор передаётся через:
+
+```text
+KEEPER_SERVER_ID
+```
+
+Основные внешние порты:
+
+| Компонент                    |  Порт |
+| ---------------------------- | ----: |
+| PostgreSQL                   | 55432 |
+| Manticore MySQL protocol     | 19306 |
+| Manticore HTTP API           | 19308 |
+| Grafana                      | 33005 |
+| ClickHouse `ch-s1-r1` HTTP   | 28411 |
+| ClickHouse `ch-s1-r1` Native | 29411 |
+
+Для управления проектом используется Makefile:
+
+```text
+make up
+make down
+make status
+make logs
+make etl
+make demo
+make test
+```
+
+Начальная автоматизированная проверка выполняется скриптом:
+
+```text
+scripts/run_tests.py
+```
+
+Результат сохраняется в:
+
+```text
+checks/infrastructure.txt
+```

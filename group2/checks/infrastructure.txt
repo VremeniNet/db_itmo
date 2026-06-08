@@ -1,0 +1,68 @@
+Multi-DB infrastructure check
+
+Running services:
+ch-s1-r1
+ch-s1-r2
+ch-s2-r1
+ch-s2-r2
+grafana
+keeper1
+keeper2
+keeper3
+manticore
+postgres
+
+All 10 services are running.
+
+PostgreSQL:
+Return code: 0
+PostgreSQL 17.10 (Debian 17.10-1.pgdg13+1) on x86_64-pc-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit
+
+ClickHouse nodes:
+group2-ch-s1-r1: code=0, result=ch-s1-r1	26.5.1.882
+group2-ch-s1-r2: code=0, result=ch-s1-r2	26.5.1.882
+group2-ch-s2-r1: code=0, result=ch-s2-r1	26.5.1.882
+group2-ch-s2-r2: code=0, result=ch-s2-r2	26.5.1.882
+
+ClickHouse cluster:
+cluster	shard_num	replica_num	host_name
+cluster_2x2	1	1	ch-s1-r1
+cluster_2x2	1	2	ch-s1-r2
+cluster_2x2	2	1	ch-s2-r1
+cluster_2x2	2	2	ch-s2-r2
+
+Keeper health:
+127.0.0.1:29581: imok
+127.0.0.1:29582: imok
+127.0.0.1:29583: imok
+
+ManticoreSearch:
+[{
+"columns":[{"Table":{"type":"string"}},{"Type":{"type":"string"}}],
+"data":[
+
+],
+"total":0,
+"error":"",
+"warning":""
+}]
+
+Grafana:
+{
+  "database": "ok",
+  "version": "11.6.0",
+  "commit": "d2fdff9ee4d75c74bfd3a97c18a0b8e4d029f06e"
+}
+
+docker compose ps:
+NAME               IMAGE                                     COMMAND                  SERVICE     CREATED         STATUS                   PORTS
+group2-ch-s1-r1    clickhouse/clickhouse-server:26.5.1.882   "/entrypoint.sh"         ch-s1-r1    2 minutes ago   Up 2 minutes (healthy)   9009/tcp, 0.0.0.0:28411->8123/tcp, 0.0.0.0:29411->9000/tcp
+group2-ch-s1-r2    clickhouse/clickhouse-server:26.5.1.882   "/entrypoint.sh"         ch-s1-r2    2 minutes ago   Up 2 minutes (healthy)   9009/tcp, 0.0.0.0:28412->8123/tcp, 0.0.0.0:29412->9000/tcp
+group2-ch-s2-r1    clickhouse/clickhouse-server:26.5.1.882   "/entrypoint.sh"         ch-s2-r1    2 minutes ago   Up 2 minutes (healthy)   9009/tcp, 0.0.0.0:28421->8123/tcp, 0.0.0.0:29421->9000/tcp
+group2-ch-s2-r2    clickhouse/clickhouse-server:26.5.1.882   "/entrypoint.sh"         ch-s2-r2    2 minutes ago   Up 2 minutes (healthy)   9009/tcp, 0.0.0.0:28422->8123/tcp, 0.0.0.0:29422->9000/tcp
+group2-grafana     grafana/grafana:11.6.0                    "/run.sh"                grafana     2 minutes ago   Up About a minute        0.0.0.0:33005->3000/tcp
+group2-keeper1     clickhouse/clickhouse-server:26.5.1.882   "/entrypoint.sh clic…"   keeper1     2 minutes ago   Up 2 minutes             8123/tcp, 9000/tcp, 9009/tcp, 0.0.0.0:29581->9181/tcp
+group2-keeper2     clickhouse/clickhouse-server:26.5.1.882   "/entrypoint.sh clic…"   keeper2     2 minutes ago   Up 2 minutes             8123/tcp, 9000/tcp, 9009/tcp, 0.0.0.0:29582->9181/tcp
+group2-keeper3     clickhouse/clickhouse-server:26.5.1.882   "/entrypoint.sh clic…"   keeper3     2 minutes ago   Up 2 minutes             8123/tcp, 9000/tcp, 9009/tcp, 0.0.0.0:29583->9181/tcp
+group2-manticore   manticoresearch/manticore:latest          "docker-entrypoint.s…"   manticore   2 minutes ago   Up 2 minutes             9312/tcp, 0.0.0.0:19306->9306/tcp, 0.0.0.0:19308->9308/tcp
+group2-postgres    postgres:17                               "docker-entrypoint.s…"   postgres    2 minutes ago   Up 2 minutes (healthy)   0.0.0.0:55432->5432/tcp

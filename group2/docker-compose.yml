@@ -1,0 +1,250 @@
+name: group2-pipeline
+
+x-clickhouse-environment: &clickhouse-environment
+  CLICKHOUSE_CLUSTER: cluster_2x2
+  CLICKHOUSE_SKIP_USER_SETUP: "1"
+
+x-clickhouse-common: &clickhouse-common
+  image: ${CLICKHOUSE_IMAGE}
+  restart: unless-stopped
+  networks:
+    - pipeline-net
+  depends_on:
+    - keeper1
+    - keeper2
+    - keeper3
+  configs:
+    - source: clickhouse_cluster
+      target: /etc/clickhouse-server/config.d/cluster.xml
+    - source: clickhouse_macros
+      target: /etc/clickhouse-server/config.d/macros.xml
+    - source: clickhouse_users
+      target: /etc/clickhouse-server/users.d/zz-default-user.xml
+  healthcheck:
+    test:
+      - CMD-SHELL
+      - clickhouse-client --query "SELECT 1" >/dev/null 2>&1
+    interval: 5s
+    timeout: 3s
+    retries: 20
+    start_period: 10s
+
+x-keeper-common: &keeper-common
+  image: ${CLICKHOUSE_IMAGE}
+  restart: unless-stopped
+  command:
+    - clickhouse-keeper
+    - --config-file=/etc/clickhouse-keeper/keeper_config.xml
+  networks:
+    - pipeline-net
+  configs:
+    - source: keeper_config
+      target: /etc/clickhouse-keeper/keeper_config.xml
+
+services:
+  postgres:
+    image: ${POSTGRES_IMAGE}
+    container_name: group2-postgres
+    hostname: postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    ports:
+      - "${POSTGRES_PORT}:5432"
+    networks:
+      - pipeline-net
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 10s
+
+  keeper1:
+    <<: *keeper-common
+    container_name: group2-keeper1
+    hostname: keeper1
+    environment:
+      KEEPER_SERVER_ID: "1"
+    volumes:
+      - keeper1-data:/var/lib/clickhouse-keeper
+    ports:
+      - "29581:9181"
+
+  keeper2:
+    <<: *keeper-common
+    container_name: group2-keeper2
+    hostname: keeper2
+    environment:
+      KEEPER_SERVER_ID: "2"
+    volumes:
+      - keeper2-data:/var/lib/clickhouse-keeper
+    ports:
+      - "29582:9181"
+
+  keeper3:
+    <<: *keeper-common
+    container_name: group2-keeper3
+    hostname: keeper3
+    environment:
+      KEEPER_SERVER_ID: "3"
+    volumes:
+      - keeper3-data:/var/lib/clickhouse-keeper
+    ports:
+      - "29583:9181"
+
+  ch-s1-r1:
+    <<: *clickhouse-common
+    container_name: group2-ch-s1-r1
+    hostname: ch-s1-r1
+    environment:
+      <<: *clickhouse-environment
+      CLICKHOUSE_SHARD: shard1
+      CLICKHOUSE_REPLICA: s1r1
+      CLICKHOUSE_HOST: ch-s1-r1
+    volumes:
+      - ch-s1-r1-data:/var/lib/clickhouse
+    ports:
+      - "28411:8123"
+      - "29411:9000"
+
+  ch-s1-r2:
+    <<: *clickhouse-common
+    container_name: group2-ch-s1-r2
+    hostname: ch-s1-r2
+    environment:
+      <<: *clickhouse-environment
+      CLICKHOUSE_SHARD: shard1
+      CLICKHOUSE_REPLICA: s1r2
+      CLICKHOUSE_HOST: ch-s1-r2
+    volumes:
+      - ch-s1-r2-data:/var/lib/clickhouse
+    ports:
+      - "28412:8123"
+      - "29412:9000"
+
+  ch-s2-r1:
+    <<: *clickhouse-common
+    container_name: group2-ch-s2-r1
+    hostname: ch-s2-r1
+    environment:
+      <<: *clickhouse-environment
+      CLICKHOUSE_SHARD: shard2
+      CLICKHOUSE_REPLICA: s2r1
+      CLICKHOUSE_HOST: ch-s2-r1
+    volumes:
+      - ch-s2-r1-data:/var/lib/clickhouse
+    ports:
+      - "28421:8123"
+      - "29421:9000"
+
+  ch-s2-r2:
+    <<: *clickhouse-common
+    container_name: group2-ch-s2-r2
+    hostname: ch-s2-r2
+    environment:
+      <<: *clickhouse-environment
+      CLICKHOUSE_SHARD: shard2
+      CLICKHOUSE_REPLICA: s2r2
+      CLICKHOUSE_HOST: ch-s2-r2
+    volumes:
+      - ch-s2-r2-data:/var/lib/clickhouse
+    ports:
+      - "28422:8123"
+      - "29422:9000"
+
+  manticore:
+    image: ${MANTICORE_IMAGE}
+    container_name: group2-manticore
+    hostname: manticore
+    restart: unless-stopped
+    networks:
+      - pipeline-net
+    volumes:
+      - manticore-data:/var/lib/manticore
+    ports:
+      - "${MANTICORE_MYSQL_PORT}:9306"
+      - "${MANTICORE_HTTP_PORT}:9308"
+
+  grafana:
+    image: ${GRAFANA_IMAGE}
+    container_name: group2-grafana
+    hostname: grafana
+    restart: unless-stopped
+    networks:
+      - pipeline-net
+    depends_on:
+      postgres:
+        condition: service_healthy
+      ch-s1-r1:
+        condition: service_healthy
+      ch-s1-r2:
+        condition: service_healthy
+      ch-s2-r1:
+        condition: service_healthy
+      ch-s2-r2:
+        condition: service_healthy
+      manticore:
+        condition: service_started
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    configs:
+      - source: grafana_datasources
+        target: /etc/grafana/provisioning/datasources/datasources.yml
+      - source: grafana_dashboards
+        target: /etc/grafana/provisioning/dashboards/dashboards.yml
+      - source: grafana_dashboard_json
+        target: /var/lib/grafana/dashboards/multi_db.json
+    volumes:
+      - grafana-data:/var/lib/grafana
+    ports:
+      - "${GRAFANA_PORT}:3000"
+
+networks:
+  pipeline-net:
+    name: group2-pipeline-net
+
+volumes:
+  postgres-data:
+
+  keeper1-data:
+  keeper2-data:
+  keeper3-data:
+
+  ch-s1-r1-data:
+  ch-s1-r2-data:
+  ch-s2-r1-data:
+  ch-s2-r2-data:
+
+  manticore-data:
+  grafana-data:
+
+configs:
+  keeper_config:
+    file: ./config/keeper/keeper.xml
+
+  clickhouse_cluster:
+    file: ./config/clickhouse/cluster.xml
+
+  clickhouse_macros:
+    file: ./config/clickhouse/macros.xml
+
+  clickhouse_users:
+    file: ./config/clickhouse/users.xml
+
+  grafana_datasources:
+    file: ./monitoring/provisioning/datasources/datasources.yml
+
+  grafana_dashboards:
+    file: ./monitoring/provisioning/dashboards/dashboards.yml
+
+  grafana_dashboard_json:
+    file: ./monitoring/dashboards/multi_db.json
