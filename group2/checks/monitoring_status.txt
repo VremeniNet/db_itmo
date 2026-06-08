@@ -1,0 +1,195 @@
+Multi-DB Grafana monitoring verification
+
+================================================================================
+Create PostgreSQL monitoring table
+================================================================================
+CREATE SCHEMA
+CREATE TABLE
+CREATE INDEX
+
+
+================================================================================
+Collected database metrics
+================================================================================
+PostgreSQL active connections: 1
+PostgreSQL TPS: 9.981
+PostgreSQL database size: 297064115 bytes
+
+ClickHouse rows: 1000004
+ClickHouse unique orders: 500002
+ClickHouse QPS: 44.350
+ClickHouse minimum active replicas: 2
+ClickHouse replication queue: 0
+
+ManticoreSearch documents: 200001
+ManticoreSearch search time: 128.856 ms
+
+
+================================================================================
+Inserted monitoring snapshot
+================================================================================
+1|2026-06-08 13:45:07.077547+00
+
+
+================================================================================
+ManticoreSearch test response
+================================================================================
+[{
+"columns":[{"id":{"type":"long long"}},{"title":{"type":"string"}},{"rating":{"type":"long"}},{"weight":{"type":"long long"}}],
+"data":[
+{"id":200001,"title":"Качество сборки","rating":5,"weight":4812},
+{"id":176001,"title":"Обычный товар","rating":3,"weight":2521},
+{"id":176002,"title":"Обычный товар","rating":3,"weight":2521},
+{"id":176003,"title":"Обычный товар","rating":3,"weight":2521},
+{"id":176004,"title":"Обычный товар","rating":3,"weight":2521},
+{"id":176005,"title":"Обычный товар","rating":3,"weight":2521},
+{"id":176006,"title":"Обычный товар","rating":3,"weight":2521},
+{"id":176007,"title":"Обычный товар","rating":3,"weight":2521},
+{"id":176008,"title":"Обычный товар","rating":3,"weight":2521},
+{"id":176009,"title":"Обычный товар","rating":3,"weight":2521}
+],
+"total":10,
+"error":"",
+"warning":""
+}]
+
+
+================================================================================
+Grafana health
+================================================================================
+{
+  "database": "ok",
+  "version": "11.6.0",
+  "commit": "d2fdff9ee4d75c74bfd3a97c18a0b8e4d029f06e"
+}
+
+
+================================================================================
+Provisioned PostgreSQL datasource
+================================================================================
+{
+  "id": 1,
+  "uid": "postgresql",
+  "orgId": 1,
+  "name": "PostgreSQL",
+  "type": "grafana-postgresql-datasource",
+  "typeLogoUrl": "public/app/plugins/datasource/grafana-postgresql-datasource/img/postgresql_logo.svg",
+  "access": "proxy",
+  "url": "postgres:5432",
+  "user": "postgres",
+  "database": "",
+  "basicAuth": false,
+  "basicAuthUser": "",
+  "withCredentials": false,
+  "isDefault": true,
+  "jsonData": {
+    "connMaxLifetime": 14400,
+    "database": "ecommerce",
+    "maxIdleConns": 10,
+    "maxOpenConns": 20,
+    "postgresVersion": 1700,
+    "sslmode": "disable",
+    "timescaledb": false
+  },
+  "secureJsonFields": {
+    "password": true
+  },
+  "version": 1,
+  "readOnly": true,
+  "apiVersion": ""
+}
+
+
+================================================================================
+Provisioned ClickHouse datasource
+================================================================================
+{
+  "id": 2,
+  "uid": "clickhouse",
+  "orgId": 1,
+  "name": "ClickHouse",
+  "type": "grafana-clickhouse-datasource",
+  "typeLogoUrl": "public/plugins/grafana-clickhouse-datasource/img/logo.svg",
+  "access": "proxy",
+  "url": "",
+  "user": "",
+  "database": "",
+  "basicAuth": false,
+  "basicAuthUser": "",
+  "withCredentials": false,
+  "isDefault": false,
+  "jsonData": {
+    "defaultDatabase": "ecommerce",
+    "dialTimeout": 10,
+    "host": "ch-s1-r1",
+    "port": 8123,
+    "protocol": "http",
+    "queryTimeout": 60,
+    "secure": false,
+    "username": "default",
+    "validateSql": true
+  },
+  "secureJsonFields": {},
+  "version": 1,
+  "readOnly": true,
+  "apiVersion": ""
+}
+
+
+================================================================================
+Provisioned Grafana dashboard
+================================================================================
+[
+  {
+    "id": 2,
+    "uid": "multi-db-pipeline",
+    "orgId": 1,
+    "title": "Multi-DB Pipeline",
+    "uri": "db/multi-db-pipeline",
+    "url": "/d/multi-db-pipeline/multi-db-pipeline",
+    "slug": "",
+    "type": "dash-db",
+    "tags": [
+      "clickhouse",
+      "manticore",
+      "pipeline",
+      "postgresql"
+    ],
+    "isStarred": false,
+    "folderId": 1,
+    "folderUid": "dfoikjiaa61ogf",
+    "folderTitle": "Multi-DB",
+    "folderUrl": "/dashboards/f/dfoikjiaa61ogf/Multi-DB",
+    "sortMeta": 0,
+    "isDeleted": false
+  }
+]
+
+
+================================================================================
+Grafana dashboard panels
+================================================================================
+id=1, title=PostgreSQL active connections, type=stat, datasource=postgresql
+  SQL: SELECT count(*) AS value FROM pg_stat_activity WHERE datname = current_database()
+id=2, title=PostgreSQL transactions per second, type=stat, datasource=postgresql
+  SQL: SELECT pg_tps AS value FROM monitoring.pipeline_metrics ORDER BY collected_at DESC LIMIT 1
+id=3, title=ClickHouse analytics rows, type=stat, datasource=clickhouse
+  SQL: SELECT count() AS value FROM ecommerce.orders_analytics_distributed
+id=4, title=ClickHouse queries per second, type=stat, datasource=postgresql
+  SQL: SELECT ch_qps AS value FROM monitoring.pipeline_metrics ORDER BY collected_at DESC LIMIT 1
+id=5, title=ManticoreSearch documents, type=stat, datasource=postgresql
+  SQL: SELECT manticore_documents AS value FROM monitoring.pipeline_metrics ORDER BY collected_at DESC LIMIT 1
+id=6, title=ManticoreSearch search time, type=stat, datasource=postgresql
+  SQL: SELECT manticore_search_ms AS value FROM monitoring.pipeline_metrics ORDER BY collected_at DESC LIMIT 1
+id=7, title=PostgreSQL table sizes, type=table, datasource=postgresql
+  SQL: SELECT relname AS table_name, pg_size_pretty( pg_total_relation_size(relid) ) AS total_size, pg_total_relation_size(relid) AS total_size_bytes FROM pg_catalog.pg_statio_user_tables ORDER BY total_size_bytes DESC LIMIT 10
+id=8, title=ClickHouse replication status, type=table, datasource=clickhouse
+  SQL: SELECT hostName() AS node, table, replica_name, total_replicas, active_replicas, queue_size, absolute_delay FROM clusterAllReplicas( 'cluster_2x2', system.replicas ) WHERE database = 'ecommerce' ORDER BY node, table
+id=9, title=Pipeline synchronization status, type=table, datasource=postgresql
+  SQL: SELECT last_sync, orders_processed, reviews_processed, ch_rows, manticore_documents FROM monitoring.pipeline_metrics ORDER BY collected_at DESC LIMIT 1
+
+
+================================================================================
+Latest pipeline monitoring snapshot
+================================================================================
+2026-06-08 13:45:07.077547+00|1|9.981|283 MB|1000004|44.350|2|0|200001|128.856|500002|200001|2026-06-08 13:45:07.077547+00

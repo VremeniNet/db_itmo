@@ -1154,3 +1154,334 @@ LIMIT 10;
 * Python-скрипт связывает системы через инкрементальный ETL.
 
 Таким образом, полный поток данных от OLTP-операции до аналитики и поиска работает корректно.
+
+## Часть 6. Мониторинг Grafana
+
+Для мониторинга PostgreSQL, ClickHouse, ManticoreSearch и ETL-конвейера используется Grafana.
+
+Grafana доступна по адресу:
+
+```text
+http://localhost:33005
+```
+
+Дашборд загружается автоматически через provisioning.
+
+Конфигурация источников данных:
+
+```text
+monitoring/provisioning/datasources/datasources.yml
+```
+
+Конфигурация загрузки дашборда:
+
+```text
+monitoring/provisioning/dashboards/dashboards.yml
+```
+
+JSON дашборда:
+
+```text
+monitoring/dashboards/multi_db.json
+```
+
+Скрипт создания JSON:
+
+```text
+scripts/build_monitoring_dashboard.py
+```
+
+Скрипт сбора и проверки метрик:
+
+```text
+scripts/collect_monitoring.py
+```
+
+Результат проверки сохранён в:
+
+```text
+checks/monitoring_status.txt
+```
+
+### Источники данных
+
+В Grafana автоматически созданы два datasource.
+
+#### PostgreSQL
+
+Параметры подключения:
+
+```text
+host: postgres
+port: 5432
+database: ecommerce
+user: postgres
+```
+
+Datasource имеет идентификатор:
+
+```text
+postgresql
+```
+
+PostgreSQL используется для панелей:
+
+* активные подключения;
+* транзакции в секунду;
+* размеры таблиц;
+* состояние ETL-конвейера;
+* показатели ManticoreSearch, сохранённые в служебной таблице.
+
+#### ClickHouse
+
+Параметры подключения:
+
+```text
+host: ch-s1-r1
+port: 8123
+database: ecommerce
+user: default
+```
+
+Datasource имеет идентификатор:
+
+```text
+clickhouse
+```
+
+Он используется для:
+
+* подсчёта строк аналитической таблицы;
+* проверки состояния репликации.
+
+Проверка показала, что оба datasource созданы автоматически и доступны Grafana.
+
+### Таблица снимков мониторинга
+
+В PostgreSQL создана таблица:
+
+```text
+monitoring.pipeline_metrics
+```
+
+Она хранит:
+
+* количество подключений PostgreSQL;
+* PostgreSQL TPS;
+* размер PostgreSQL;
+* количество строк ClickHouse;
+* ClickHouse QPS;
+* минимальное количество активных реплик;
+* сумму очередей репликации;
+* количество документов ManticoreSearch;
+* время полнотекстового поиска;
+* количество обработанных заказов;
+* количество обработанных отзывов;
+* время последней синхронизации.
+
+Последний снимок:
+
+| Показатель                         |   Значение |
+| ---------------------------------- | ---------: |
+| PostgreSQL active connections      |          1 |
+| PostgreSQL TPS                     |      9.981 |
+| PostgreSQL database size           |     283 MB |
+| ClickHouse rows                    |    1000004 |
+| ClickHouse unique orders           |     500002 |
+| ClickHouse QPS                     |     44.350 |
+| ClickHouse minimum active replicas |          2 |
+| ClickHouse replication queue       |          0 |
+| ManticoreSearch documents          |     200001 |
+| ManticoreSearch search time        | 128.856 ms |
+| Orders processed                   |     500002 |
+| Reviews processed                  |     200001 |
+
+Время снимка:
+
+```text
+2026-06-08 13:45:07.077547+00
+```
+
+### Панели Grafana
+
+Дашборд содержит 9 панелей.
+
+#### 1. PostgreSQL active connections
+
+Источник:
+
+```text
+PostgreSQL
+```
+
+Запрос:
+
+```sql
+SELECT count(*) AS value
+FROM pg_stat_activity
+WHERE datname = current_database();
+```
+
+Фактическое значение:
+
+```text
+1
+```
+
+#### 2. PostgreSQL transactions per second
+
+Источник:
+
+```text
+PostgreSQL
+```
+
+Последнее измеренное значение:
+
+```text
+9.981 TPS
+```
+
+#### 3. ClickHouse analytics rows
+
+Источник:
+
+```text
+ClickHouse
+```
+
+Запрос:
+
+```sql
+SELECT count() AS value
+FROM ecommerce.orders_analytics_distributed;
+```
+
+Результат:
+
+```text
+1000004
+```
+
+Полный ETL загрузил `1000002` строки, а demo-сценарий добавил ещё две позиции нового заказа.
+
+#### 4. ClickHouse queries per second
+
+Последнее измеренное значение:
+
+```text
+44.350 QPS
+```
+
+Показатель сохраняется в PostgreSQL после выполнения тестовой серии запросов к ClickHouse.
+
+#### 5. ManticoreSearch documents
+
+Количество документов в индексе:
+
+```text
+200001
+```
+
+Полный ETL загрузил `200000` отзывов, а demo-сценарий добавил ещё один отзыв.
+
+#### 6. ManticoreSearch search time
+
+Был выполнен запрос:
+
+```sql
+SELECT
+    id,
+    title,
+    rating,
+    WEIGHT() AS weight
+FROM reviews
+WHERE MATCH('качество сборки')
+ORDER BY weight DESC
+LIMIT 10;
+```
+
+Время выполнения:
+
+```text
+128.856 ms
+```
+
+Созданный в demo-сценарии отзыв был найден первым.
+
+#### 7. PostgreSQL table sizes
+
+Панель выполняет запрос к:
+
+```text
+pg_catalog.pg_statio_user_tables
+```
+
+и показывает размеры крупнейших таблиц PostgreSQL.
+
+Общий размер базы данных:
+
+```text
+283 MB
+```
+
+#### 8. ClickHouse replication status
+
+Панель выполняет запрос:
+
+```sql
+SELECT
+    hostName() AS node,
+    table,
+    replica_name,
+    total_replicas,
+    active_replicas,
+    queue_size,
+    absolute_delay
+FROM clusterAllReplicas(
+    'cluster_2x2',
+    system.replicas
+)
+WHERE database = 'ecommerce'
+ORDER BY node, table;
+```
+
+Фактическое состояние:
+
+| Показатель                    | Значение |
+| ----------------------------- | -------: |
+| Минимальное `active_replicas` |        2 |
+| Общая очередь репликации      |        0 |
+
+Все реплики доступны, очередь репликации отсутствует.
+
+#### 9. Pipeline synchronization status
+
+Панель показывает:
+
+* время последней синхронизации;
+* количество обработанных заказов;
+* количество обработанных отзывов;
+* количество строк в ClickHouse;
+* количество документов ManticoreSearch.
+
+Фактические значения:
+
+| Показатель                | Значение |
+| ------------------------- | -------: |
+| Orders processed          |   500002 |
+| Reviews processed         |   200001 |
+| ClickHouse rows           |  1000004 |
+| ManticoreSearch documents |   200001 |
+
+### Вывод
+
+Grafana объединяет показатели трёх систем в одном дашборде.
+
+PostgreSQL предоставляет информацию о транзакционной нагрузке и размерах таблиц.
+
+ClickHouse предоставляет сведения о количестве аналитических строк и состоянии репликации.
+
+ManticoreSearch предоставляет количество поисковых документов и время полнотекстового поиска.
+
+Отдельная таблица `monitoring.pipeline_metrics` хранит состояние последней синхронизации и связывает показатели всех компонентов конвейера.
