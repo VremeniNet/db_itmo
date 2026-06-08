@@ -1,0 +1,118 @@
+Multi-DB end-to-end demo scenario
+
+================================================================================
+1. Create order in PostgreSQL
+================================================================================
+Created order_id: 500002
+
+500002|new|Customer 42|South|2|3|86.50
+
+Elapsed time: 1.0048 sec
+
+
+================================================================================
+2. Incremental ETL PostgreSQL to ClickHouse
+================================================================================
+Order rows inserted into ClickHouse.
+Distributed queue flushed.
+
+group2-ch-s1-r1 / orders_analytics_local: code=0, result=synchronized
+group2-ch-s1-r1 / category_revenue_local: code=0, result=synchronized
+group2-ch-s1-r1 / daily_orders_local: code=0, result=synchronized
+group2-ch-s1-r2 / orders_analytics_local: code=0, result=synchronized
+group2-ch-s1-r2 / category_revenue_local: code=0, result=synchronized
+group2-ch-s1-r2 / daily_orders_local: code=0, result=synchronized
+group2-ch-s2-r1 / orders_analytics_local: code=0, result=synchronized
+group2-ch-s2-r1 / category_revenue_local: code=0, result=synchronized
+group2-ch-s2-r1 / daily_orders_local: code=0, result=synchronized
+group2-ch-s2-r2 / orders_analytics_local: code=0, result=synchronized
+group2-ch-s2-r2 / category_revenue_local: code=0, result=synchronized
+group2-ch-s2-r2 / daily_orders_local: code=0, result=synchronized
+
+Elapsed time: 8.2516 sec
+
+
+================================================================================
+3. ClickHouse analytics
+================================================================================
+New order in ClickHouse:
+┌─order_id─┬─positions─┬─items─┬─order_total─┬─order_status─┐
+1. │   500002 │         2 │     3 │        86.5 │ new          │
+   └──────────┴───────────┴───────┴─────────────┴──────────────┘
+
+Top 5 categories by revenue in the latest month:
+┌─category────┬─total_revenue─┬─items_sold─┐
+1. │ Garden      │       2835285 │       4450 │
+2. │ Electronics │     2820188.5 │       4454 │
+3. │ Clothing    │    2819100.25 │       4451 │
+4. │ Accessories │     2816222.5 │       4455 │
+5. │ Sports      │       2677005 │       4162 │
+   └─────────────┴───────────────┴────────────┘
+
+Elapsed time: 0.6231 sec
+
+
+================================================================================
+4. Create review in PostgreSQL
+================================================================================
+Created review_id: 200001
+
+200001|42|42|5|Качество сборки|Отличное качество сборки. Товар надёжный, удобный и полностью соответствует описанию.
+
+Elapsed time: 0.4468 sec
+
+
+================================================================================
+5. Incremental ETL PostgreSQL to ManticoreSearch
+================================================================================
+Bulk response:
+{"items":[{"bulk":{"table":"reviews","_id":200001,"created":1,"deleted":0,"updated":0,"result":"created","status":201}}],"current_line":2,"skipped_lines":0,"errors":false,"error":""}
+
+Inserted review verification:
+[{
+"columns":[{"id":{"type":"long long"}},{"title":{"type":"string"}},{"product_id":{"type":"long"}},{"customer_id":{"type":"long"}},{"rating":{"type":"long"}}],
+"data":[
+{"id":200001,"title":"Качество сборки","product_id":42,"customer_id":42,"rating":5}
+],
+"total":1,
+"error":"",
+"warning":""
+}]
+
+Elapsed time: 0.5017 sec
+
+
+================================================================================
+6. Full-text search in ManticoreSearch
+================================================================================
+Search query: качество сборки
+
+[{
+"columns":[{"id":{"type":"long long"}},{"title":{"type":"string"}},{"product_id":{"type":"long"}},{"rating":{"type":"long"}},{"weight":{"type":"long long"}}],
+"data":[
+{"id":200001,"title":"Качество сборки","product_id":42,"rating":5,"weight":4812},
+{"id":200000,"title":"Отличный товар","product_id":10000,"rating":5,"weight":2521},
+{"id":199999,"title":"Отличный товар","product_id":9999,"rating":5,"weight":2521},
+{"id":199998,"title":"Отличный товар","product_id":9998,"rating":5,"weight":2521},
+{"id":199997,"title":"Отличный товар","product_id":9997,"rating":5,"weight":2521},
+{"id":199996,"title":"Отличный товар","product_id":9996,"rating":5,"weight":2521},
+{"id":199995,"title":"Отличный товар","product_id":9995,"rating":5,"weight":2521},
+{"id":199994,"title":"Отличный товар","product_id":9994,"rating":5,"weight":2521},
+{"id":199993,"title":"Отличный товар","product_id":9993,"rating":5,"weight":2521},
+{"id":199992,"title":"Отличный товар","product_id":9992,"rating":5,"weight":2521}
+],
+"total":10,
+"error":"",
+"warning":""
+}]
+
+Elapsed time: 0.1355 sec
+
+
+Demo summary:
+- PostgreSQL order_id: 500002
+- order was incrementally loaded into ClickHouse
+- ClickHouse analytical query succeeded
+- PostgreSQL review_id: 200001
+- review was incrementally loaded into ManticoreSearch
+- full-text search returned the new review
