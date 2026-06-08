@@ -1,0 +1,129 @@
+PostgreSQL OLTP schema, data and operations
+
+================================================================================
+1. Create normalized schema
+================================================================================
+SET
+DROP TABLE
+NOTICE:  table "reviews" does not exist, skipping
+NOTICE:  table "order_items" does not exist, skipping
+DROP TABLE
+DROP TABLE
+NOTICE:  table "orders" does not exist, skipping
+NOTICE:  table "products" does not exist, skipping
+DROP TABLE
+DROP TABLE
+NOTICE:  table "customers" does not exist, skipping
+DROP TABLE
+NOTICE:  table "categories" does not exist, skipping
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+
+Elapsed time: 0.700 sec
+
+================================================================================
+2. Generate test data
+================================================================================
+SET
+SET
+INSERT 0 20
+INSERT 0 100000
+INSERT 0 10000
+INSERT 0 500000
+INSERT 0 1000000
+INSERT 0 200000
+ANALYZE
+ANALYZE
+ANALYZE
+ANALYZE
+ANALYZE
+ANALYZE
+
+Elapsed time: 92.960 sec
+
+================================================================================
+3. OLTP operations
+================================================================================
+Pager usage is off.
+Timing is on.
+ table_name  |  rows   
+-------------+---------
+ categories  |      20
+ customers   |  100000
+ order_items | 1000000
+ orders      |  500000
+ products    |   10000
+ reviews     |  200000
+(6 rows)
+
+Time: 187.682 ms
+BEGIN
+Time: 0.182 ms
+INSERT 0 1
+Time: 1921.439 ms (00:01.921)
+INSERT 0 2
+Time: 67.094 ms
+COMMIT
+Time: 51.568 ms
+Created order ID: 500001
+ order_id |          order_date           | status | customer_id | customer_name |         email          | region | positions_count | items_count | order_total 
+----------+-------------------------------+--------+-------------+---------------+------------------------+--------+-----------------+-------------+-------------
+   500001 | 2026-06-08 12:28:46.174218+00 | new    |          42 | Customer 42   | customer42@example.com | South  |               2 |           3 |       86.50
+(1 row)
+
+Time: 18.526 ms
+ order_id | product_id | product_name  | category  | quantity | unit_price | line_total 
+----------+------------+---------------+-----------+----------+------------+------------
+   500001 |         42 | Product 00042 | Computers |        2 |      20.50 |      41.00
+   500001 |        142 | Product 00142 | Computers |        1 |      45.50 |      45.50
+(2 rows)
+
+Time: 2.757 ms
+UPDATE 1
+Time: 6.737 ms
+ order_id | status |          order_date           
+----------+--------+-------------------------------
+   500001 | paid   | 2026-06-08 12:28:46.174218+00
+(1 row)
+
+Time: 0.382 ms
+
+Elapsed time: 2.527 sec
+
+================================================================================
+4. Final verification
+================================================================================
+orders_count 
+--------------
+       500001
+(1 row)
+
+ reviews_count 
+---------------
+        200000
+(1 row)
+
+ order_items_count 
+-------------------
+           1000002
+(1 row)
+
+ database_size 
+---------------
+ 283 MB
+(1 row)
+
+Elapsed time: 0.342 sec
