@@ -1,7 +1,7 @@
 COMPOSE = docker compose
 PYTHON = python
 
-.PHONY: up down status logs etl demo test
+.PHONY: up down status logs etl demo test comparison
 
 up:
 	$(COMPOSE) up -d
@@ -24,3 +24,6 @@ demo:
 
 test:
 	$(PYTHON) scripts/run_tests.py
+
+comparison:
+	$(PYTHON) scripts/run_comparison.py

@@ -1,0 +1,64 @@
+PostgreSQL vs ClickHouse vs ManticoreSearch comparison
+
+================================================================================
+PostgreSQL benchmark
+================================================================================
+Insert 1 record: 402.626 ms
+Insert 100K records: 2.716 sec
+SELECT by PK: 338.826 ms
+GROUP BY on order_items: 1069.220 ms
+Full-text search on reviews: 420.822 ms
+UPDATE 1 record: 341.300 ms
+
+
+================================================================================
+ClickHouse benchmark
+================================================================================
+Insert 1 record: not recommended
+Insert 100K records: 0.851 sec
+SELECT by key: 878.956 ms
+GROUP BY on analytics rows: 926.483 ms
+Full-text search: N/A
+UPDATE 1 record: not recommended / N/A
+
+
+================================================================================
+ManticoreSearch benchmark
+================================================================================
+Insert 1 document: 205.342 ms
+Insert 100K documents: 5.754 sec
+SELECT by ID: 4.574 ms
+Analytical GROUP BY: N/A
+Full-text search on reviews: 30.079 ms
+UPDATE 1 attribute: 3.465 ms
+
+
+================================================================================
+Final comparison table
+================================================================================
+Operation | PostgreSQL | ClickHouse | ManticoreSearch
+--- | ---: | ---: | ---:
+Insert 1 record | 402.626 ms | not recommended | 205.342 ms
+Insert 100K records | 2.716 sec | 0.851 sec | 5.754 sec
+SELECT by PK / ID | 338.826 ms | 878.956 ms | 4.574 ms
+Analytics GROUP BY, ~1M rows | 1069.220 ms | 926.483 ms | N/A
+Full-text search, ~200K docs | 420.822 ms | N/A | 30.079 ms
+UPDATE 1 record / attribute | 341.300 ms | not recommended | 3.465 ms
+Size on disk | 296.65 MB | 37.44 MB | 28.37 MB
+
+
+================================================================================
+Storage size details
+================================================================================
+PostgreSQL database size: 311064243 bytes
+ClickHouse physical cluster size including replicas: 39257092 bytes
+ManticoreSearch data directory size: 29745152 bytes
+
+Measurement notes:
+- latency values are medians of repeated requests
+- bulk insertion values are measured once
+- PostgreSQL analytics uses order_items with products and categories
+- ClickHouse analytics uses orders_analytics_distributed
+- PostgreSQL full-text search uses a GIN index
+- ManticoreSearch full-text search uses the reviews RT index
+- ClickHouse size includes physical data on all replicas
