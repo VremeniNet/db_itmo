@@ -1,0 +1,354 @@
+ClickHouse HA fault injection scenarios
+
+================================================================================
+Restore all services before tests
+================================================================================
+group1-keeper1
+group1-keeper2
+group1-keeper3
+group1-ch-s1-r1
+group1-ch-s1-r2
+group1-ch-s2-r1
+group1-ch-s2-r2
+group1-ch-s1-r1 is ready
+group1-ch-s1-r2 is ready
+group1-ch-s2-r1 is ready
+group1-ch-s2-r2 is ready
+
+
+================================================================================
+Create temporary replicated test tables
+================================================================================
+Keeper path: /clickhouse/tables/{shard}/fault_test_local_1780917227
+ch-s1-r2	9000	0		3	1
+ch-s2-r2	9000	0		2	1
+ch-s1-r1	9000	0		1	1
+ch-s2-r1	9000	0		0	0
+ch-s1-r1	9000	0		3	0
+ch-s1-r2	9000	0		2	0
+ch-s2-r2	9000	0		1	0
+ch-s2-r1	9000	0		0	0
+ch-s1-r2	9000	0		3	0
+ch-s1-r1	9000	0		2	0
+ch-s2-r2	9000	0		1	0
+ch-s2-r1	9000	0		0	0
+ch-s1-r1	9000	0		3	0
+ch-s1-r2	9000	0		2	0
+ch-s2-r1	9000	0		1	0
+ch-s2-r2	9000	0		0	0
+
+
+================================================================================
+Scenario 1 — initial distributed count
+================================================================================
+distributed_rows
+5000000
+
+
+================================================================================
+Scenario 1 — stop shard 2
+================================================================================
+group1-ch-s2-r1
+group1-ch-s2-r2
+
+
+================================================================================
+Scenario 1 — local SELECT on shard 1 still works
+================================================================================
+node	local_rows
+ch-s1-r1	2500800
+
+
+================================================================================
+Scenario 1 — Distributed query with shard 2 unavailable
+================================================================================
+Return code: 23
+distributed_rows
+Received exception from server (version 26.5.1):
+Code: 279. DB::Exception: Received from ch-s1-r1:9000. DB::Exception: All connection tries failed. Log: 
+
+Code: 32. DB::Exception: Attempt to read after eof. (ATTEMPT_TO_READ_AFTER_EOF) (version 26.5.1.882 (official build))
+Code: 32. DB::Exception: Attempt to read after eof. (ATTEMPT_TO_READ_AFTER_EOF) (version 26.5.1.882 (official build))
+Code: 209. DB::NetException: Timeout: connect timed out: 172.23.0.6:9000 (ch-s2-r1:9000, 172.23.0.6, local address: 172.23.0.11:56750, connection timeout 1000 ms). (SOCKET_TIMEOUT) (version 26.5.1.882 (official build))
+Code: 209. DB::NetException: Timeout: connect timed out: 172.23.0.7:9000 (ch-s2-r2:9000, 172.23.0.7, local address: 172.23.0.11:53394, connection timeout 1000 ms). (SOCKET_TIMEOUT) (version 26.5.1.882 (official build))
+Code: 198. DB::NetException: Not found address of host: ch-s2-r1: (ch-s2-r1:9000, 172.23.0.6, local address: 172.23.0.11:56750). (DNS_ERROR) (version 26.5.1.882 (official build))
+Code: 198. DB::NetException: Not found address of host: ch-s2-r2: (ch-s2-r2:9000, 172.23.0.7, local address: 172.23.0.11:53394). (DNS_ERROR) (version 26.5.1.882 (official build))
+
+: While executing Remote. (ALL_CONNECTION_TRIES_FAILED)
+(query: SELECT count() AS distributed_rows
+FROM ha.metrics_distributed
+SETTINGS
+    skip_unavailable_shards = 0,
+    max_execution_time = 15
+FORMAT TabSeparatedWithNames
+)
+
+
+================================================================================
+Scenario 1 — restore shard 2
+================================================================================
+group1-ch-s2-r1
+group1-ch-s2-r1 is ready
+group1-ch-s2-r2
+group1-ch-s2-r2 is ready
+
+
+================================================================================
+Scenario 1 — wait for fault-test replicas
+================================================================================
+group1-ch-s1-r1: replica is writable, active_replicas=2, queue_size=0
+group1-ch-s1-r2: replica is writable, active_replicas=2, queue_size=0
+group1-ch-s2-r1: replica is writable, active_replicas=2, queue_size=0
+group1-ch-s2-r2: replica is writable, active_replicas=2, queue_size=0
+
+
+================================================================================
+Scenario 1 — distributed count after recovery
+================================================================================
+distributed_rows
+5000000
+
+
+================================================================================
+Scenario 2 — initial Keeper health
+================================================================================
+[keeper1 127.0.0.1:9481]
+ruok: imok
+mntr: no state data
+
+[keeper2 127.0.0.1:9482]
+ruok: imok
+zk_server_state	follower
+
+[keeper3 127.0.0.1:9483]
+ruok: imok
+zk_server_state	follower
+
+
+
+================================================================================
+Scenario 2 — stop keeper1
+================================================================================
+group1-keeper1
+
+
+================================================================================
+Scenario 2 — Keeper health with one node down
+================================================================================
+[keeper1 127.0.0.1:9481]
+ruok ERROR: [WinError 10061] Подключение не установлено, т.к. конечный компьютер отверг запрос на подключение
+mntr ERROR: [WinError 10061] Подключение не установлено, т.к. конечный компьютер отверг запрос на подключение
+
+[keeper2 127.0.0.1:9482]
+ruok: imok
+zk_server_state	follower
+
+[keeper3 127.0.0.1:9483]
+ruok: imok
+zk_server_state	leader
+zk_synced_followers	1
+
+
+
+================================================================================
+Scenario 2 — INSERT with one Keeper down
+================================================================================
+Return code: 0
+INSERT succeeded.
+
+
+================================================================================
+Scenario 2 — synchronize replicas
+================================================================================
+[group1-ch-s1-r1] code=242
+Received exception from server (version 26.5.1):
+Code: 242. DB::Exception: Received from ch-s1-r1:9000. DB::Exception: Table is in readonly mode (replica path: /clickhouse/tables/shard1/fault_test_local_1780917227/replicas/s1r1). (TABLE_IS_READ_ONLY)
+(query: SYSTEM SYNC REPLICA ha.fault_test_local)
+[group1-ch-s1-r2] code=0
+Replica synchronized.
+[group1-ch-s2-r1] code=0
+Replica synchronized.
+[group1-ch-s2-r2] code=0
+Replica synchronized.
+
+
+================================================================================
+Scenario 2 — test row distribution
+================================================================================
+[group1-ch-s1-r1] code=0
+node	rows	one_keeper_down_rows	no_quorum_rows
+ch-s1-r1	0	0	0
+
+[group1-ch-s1-r2] code=0
+node	rows	one_keeper_down_rows	no_quorum_rows
+ch-s1-r2	0	0	0
+
+[group1-ch-s2-r1] code=0
+node	rows	one_keeper_down_rows	no_quorum_rows
+ch-s2-r1	1	1	0
+
+[group1-ch-s2-r2] code=0
+node	rows	one_keeper_down_rows	no_quorum_rows
+ch-s2-r2	1	1	0
+
+
+
+================================================================================
+Scenario 2 — restore keeper1
+================================================================================
+group1-keeper1
+
+[keeper1 127.0.0.1:9481]
+ruok: imok
+zk_server_state	follower
+
+[keeper2 127.0.0.1:9482]
+ruok: imok
+zk_server_state	follower
+
+[keeper3 127.0.0.1:9483]
+ruok: imok
+zk_server_state	leader
+zk_synced_followers	2
+
+
+
+================================================================================
+Scenario 3 — stop keeper1 and keeper2
+================================================================================
+group1-keeper1
+group1-keeper2
+
+
+================================================================================
+Scenario 3 — Keeper health without quorum
+================================================================================
+[keeper1 127.0.0.1:9481]
+ruok ERROR: [WinError 10061] Подключение не установлено, т.к. конечный компьютер отверг запрос на подключение
+mntr ERROR: [WinError 10061] Подключение не установлено, т.к. конечный компьютер отверг запрос на подключение
+
+[keeper2 127.0.0.1:9482]
+ruok ERROR: [WinError 10061] Подключение не установлено, т.к. конечный компьютер отверг запрос на подключение
+mntr ERROR: [WinError 10061] Подключение не установлено, т.к. конечный компьютер отверг запрос на подключение
+
+[keeper3 127.0.0.1:9483]
+ruok: imok
+mntr: no state data
+
+
+
+================================================================================
+Scenario 3 — INSERT without Keeper quorum
+================================================================================
+Return code: 124
+TIMEOUT after 25 seconds
+
+
+
+================================================================================
+Scenario 3 — cancel timed-out INSERT
+================================================================================
+Return code: 0
+waiting	fault_no_quorum_1780917411	default	INSERT INTO ha.fault_test_local\nVALUES
+
+
+================================================================================
+Scenario 3 — verify INSERT was not committed
+================================================================================
+Return code: 0
+no_quorum_rows
+0
+
+
+================================================================================
+Scenario 3 — local SELECT without Keeper quorum
+================================================================================
+Return code: 0
+node	local_metrics_rows
+ch-s1-r1	2500800
+
+
+================================================================================
+Scenario 3 — restore Keeper quorum
+================================================================================
+group1-keeper1
+group1-keeper2
+
+[keeper1 127.0.0.1:9481]
+ruok: imok
+zk_server_state	follower
+
+[keeper2 127.0.0.1:9482]
+ruok: 
+mntr: no state data
+
+[keeper3 127.0.0.1:9483]
+ruok: imok
+zk_server_state	leader
+zk_synced_followers	1
+
+
+
+================================================================================
+Scenario 3 — rows after Keeper recovery
+================================================================================
+[group1-ch-s1-r1] code=0
+node	rows	one_keeper_down_rows	no_quorum_rows
+ch-s1-r1	0	0	0
+
+[group1-ch-s1-r2] code=0
+node	rows	one_keeper_down_rows	no_quorum_rows
+ch-s1-r2	0	0	0
+
+[group1-ch-s2-r1] code=0
+node	rows	one_keeper_down_rows	no_quorum_rows
+ch-s2-r1	1	1	0
+
+[group1-ch-s2-r2] code=0
+node	rows	one_keeper_down_rows	no_quorum_rows
+ch-s2-r2	1	1	0
+
+
+
+================================================================================
+Final telemetry count
+================================================================================
+distributed_rows
+5000000
+
+
+================================================================================
+Remove temporary test tables
+================================================================================
+ch-s1-r1	9000	0		3	0
+ch-s2-r2	9000	0		2	0
+ch-s2-r1	9000	0		1	0
+ch-s1-r2	9000	0		0	0
+ch-s2-r2	9000	0		3	2
+ch-s1-r2	9000	0		2	2
+ch-s1-r1	9000	0		1	0
+ch-s2-r1	9000	0		0	0
+
+
+Expected conclusions:
+- loss of shard 2 breaks Distributed queries that require both shards
+- local data on shard 1 remains readable
+- loss of one Keeper preserves quorum and INSERT works
+- loss of two Keepers removes quorum and INSERT fails
+- local SELECT continues to work without Keeper quorum
+- after recovery the telemetry count remains 5000000
+
+================================================================================
+Final service recovery
+================================================================================
+group1-keeper1
+group1-keeper2
+group1-keeper3
+group1-ch-s1-r1
+group1-ch-s1-r2
+group1-ch-s2-r1
+group1-ch-s2-r2
+group1-ch-s1-r1 is ready
+group1-ch-s1-r2 is ready
+group1-ch-s2-r1 is ready
+group1-ch-s2-r2 is ready
