@@ -1,0 +1,163 @@
+ManticoreSearch review queries
+
+================================================================================
+1. Full-text search
+================================================================================
+
+SQL:
+SELECT
+    id,
+    title,
+    rating,
+    WEIGHT() AS weight
+FROM reviews
+WHERE MATCH('отличный товар рекомендую')
+ORDER BY weight DESC
+LIMIT 10
+
+Result:
+[{
+"columns":[{"id":{"type":"long long"}},{"title":{"type":"string"}},{"rating":{"type":"long"}},{"weight":{"type":"long long"}}],
+"data":[
+{"id":188001,"title":"Отличный товар","rating":4,"weight":5527},
+{"id":186001,"title":"Отличный товар","rating":4,"weight":5527},
+{"id":182001,"title":"Отличный товар","rating":4,"weight":5527},
+{"id":142001,"title":"Отличный товар","rating":5,"weight":5527},
+{"id":146001,"title":"Отличный товар","rating":5,"weight":5527},
+{"id":138001,"title":"Отличный товар","rating":4,"weight":5527},
+{"id":180001,"title":"Отличный товар","rating":4,"weight":5527},
+{"id":134001,"title":"Отличный товар","rating":4,"weight":5527},
+{"id":198001,"title":"Отличный товар","rating":5,"weight":5527},
+{"id":196001,"title":"Отличный товар","rating":5,"weight":5527}
+],
+"total":10,
+"error":"",
+"warning":""
+}]
+
+Elapsed time: 0.0325 sec
+
+================================================================================
+2. Attribute filtering
+================================================================================
+
+SQL:
+SELECT
+    id,
+    title,
+    product_id,
+    rating
+FROM reviews
+WHERE rating >= 4
+  AND product_id = 42
+ORDER BY
+    rating DESC,
+    id
+LIMIT 20
+
+Result:
+[{
+"columns":[{"id":{"type":"long long"}},{"title":{"type":"string"}},{"product_id":{"type":"long"}},{"rating":{"type":"long"}}],
+"data":[
+{"id":190042,"title":"Отличный товар","product_id":42,"rating":5},
+{"id":140042,"title":"Отличный товар","product_id":42,"rating":5},
+{"id":90042,"title":"Отличный товар","product_id":42,"rating":5},
+{"id":40042,"title":"Отличный товар","product_id":42,"rating":5},
+{"id":180042,"title":"Отличный товар","product_id":42,"rating":4},
+{"id":80042,"title":"Отличный товар","product_id":42,"rating":4},
+{"id":30042,"title":"Отличный товар","product_id":42,"rating":4},
+{"id":130042,"title":"Отличный товар","product_id":42,"rating":4}
+],
+"total":8,
+"error":"",
+"warning":""
+}]
+
+Elapsed time: 0.0316 sec
+
+================================================================================
+3. Facet by rating
+================================================================================
+
+SQL:
+SELECT
+    id,
+    title,
+    rating
+FROM reviews
+WHERE MATCH('товар')
+LIMIT 10
+FACET rating
+ORDER BY COUNT(*) DESC
+
+Result:
+[{
+"columns":[{"id":{"type":"long long"}},{"title":{"type":"string"}},{"rating":{"type":"long"}}],
+"data":[
+{"id":146001,"title":"Отличный товар","rating":5},
+{"id":184001,"title":"Отличный товар","rating":4},
+{"id":180001,"title":"Отличный товар","rating":4},
+{"id":138001,"title":"Отличный товар","rating":4},
+{"id":142001,"title":"Отличный товар","rating":5},
+{"id":134001,"title":"Отличный товар","rating":4},
+{"id":178001,"title":"Обычный товар","rating":3},
+{"id":176001,"title":"Обычный товар","rating":3},
+{"id":174001,"title":"Обычный товар","rating":3},
+{"id":198001,"title":"Отличный товар","rating":5}
+],
+"total":10,
+"error":"",
+"warning":""
+},
+{
+"columns":[{"rating":{"type":"long"}},{"count(*)":{"type":"long long"}}],
+"data":[
+{"rating":2,"count(*)":40000},
+{"rating":5,"count(*)":40000},
+{"rating":4,"count(*)":40000},
+{"rating":3,"count(*)":40000},
+{"rating":1,"count(*)":40000}
+],
+"total":5,
+"error":"",
+"warning":""
+}]
+
+Elapsed time: 0.0146 sec
+
+================================================================================
+4. Negative reviews search
+================================================================================
+
+SQL:
+SELECT
+    id,
+    title,
+    rating,
+    WEIGHT() AS weight
+FROM reviews
+WHERE MATCH('брак сломался возврат')
+ORDER BY weight DESC
+LIMIT 10
+
+Result:
+[{
+"columns":[{"id":{"type":"long long"}},{"title":{"type":"string"}},{"rating":{"type":"long"}},{"weight":{"type":"long long"}}],
+"data":[
+{"id":150001,"title":"Проблема с товаром","rating":1,"weight":1540},
+{"id":158001,"title":"Проблема с товаром","rating":1,"weight":1540},
+{"id":162001,"title":"Проблема с товаром","rating":2,"weight":1540},
+{"id":166001,"title":"Проблема с товаром","rating":2,"weight":1540},
+{"id":154001,"title":"Проблема с товаром","rating":1,"weight":1540},
+{"id":154002,"title":"Проблема с товаром","rating":1,"weight":1540},
+{"id":162002,"title":"Проблема с товаром","rating":2,"weight":1540},
+{"id":166002,"title":"Проблема с товаром","rating":2,"weight":1540},
+{"id":150002,"title":"Проблема с товаром","rating":1,"weight":1540},
+{"id":158002,"title":"Проблема с товаром","rating":1,"weight":1540}
+],
+"total":10,
+"error":"",
+"warning":""
+}]
+
+Elapsed time: 0.0134 sec

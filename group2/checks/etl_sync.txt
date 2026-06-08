@@ -151,3 +151,24 @@ ch-s2-r2	orders_analytics_local	s2r2	2	2	0	0
 
 
 Expected source rows: 1000002
+
+================================================================================
+PostgreSQL to ManticoreSearch ETL
+================================================================================
+PostgreSQL source reviews: 200000
+ManticoreSearch inserted reviews: 200000
+ManticoreSearch final count: 200000
+Batch size: 2000
+Batches: 100
+Load elapsed time: 16.347 sec
+
+Count response:
+[{
+"columns":[{"reviews_count":{"type":"long long"}}],
+"data":[
+{"reviews_count":200000}
+],
+"total":1,
+"error":"",
+"warning":""
+}]
