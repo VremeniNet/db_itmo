@@ -1,0 +1,153 @@
+PostgreSQL to ClickHouse ETL
+
+================================================================================
+Create ClickHouse analytics tables
+================================================================================
+ch-s1-r1	9000	0		3	0
+ch-s2-r1	9000	0		2	0
+ch-s1-r2	9000	0		1	0
+ch-s2-r2	9000	0		0	0
+ch-s1-r2	9000	0		3	0
+ch-s2-r2	9000	0		2	0
+ch-s1-r1	9000	0		1	0
+ch-s2-r1	9000	0		0	0
+ch-s2-r1	9000	0		3	0
+ch-s2-r2	9000	0		2	0
+ch-s1-r1	9000	0		1	0
+ch-s1-r2	9000	0		0	0
+ch-s2-r2	9000	0		3	3
+ch-s2-r1	9000	0		2	2
+ch-s1-r1	9000	0		1	1
+ch-s1-r2	9000	0		0	0
+ch-s1-r1	9000	0		3	0
+ch-s1-r2	9000	0		2	0
+ch-s2-r2	9000	0		1	0
+ch-s2-r1	9000	0		0	0
+ch-s1-r1	9000	0		3	3
+ch-s2-r1	9000	0		2	1
+ch-s2-r2	9000	0		1	1
+ch-s1-r2	9000	0		0	0
+ch-s2-r2	9000	0		3	2
+ch-s2-r1	9000	0		2	2
+ch-s1-r1	9000	0		1	0
+ch-s1-r2	9000	0		0	0
+ch-s1-r1	9000	0		3	0
+ch-s2-r2	9000	0		2	0
+ch-s2-r1	9000	0		1	0
+ch-s1-r2	9000	0		0	0
+ch-s1-r1	9000	0		3	0
+ch-s2-r1	9000	0		2	0
+ch-s2-r2	9000	0		1	0
+ch-s1-r2	9000	0		0	0
+
+
+================================================================================
+Clean previous ClickHouse data
+================================================================================
+ch-s1-r2	9000	0		3	1
+ch-s2-r2	9000	0		2	1
+ch-s2-r1	9000	0		1	1
+ch-s1-r1	9000	0		0	0
+ch-s2-r2	9000	0		3	2
+ch-s2-r1	9000	0		2	2
+ch-s1-r1	9000	0		1	1
+ch-s1-r2	9000	0		0	0
+ch-s2-r2	9000	0		3	3
+ch-s1-r2	9000	0		2	1
+ch-s2-r1	9000	0		1	1
+ch-s1-r1	9000	0		0	0
+
+
+================================================================================
+PostgreSQL source row count
+================================================================================
+1000002
+
+
+================================================================================
+Export PostgreSQL JOIN to CSV
+================================================================================
+Export time: 22.290 sec
+CSV size: 81.08 MB
+
+
+================================================================================
+Import CSV into ClickHouse
+================================================================================
+Import time: 112.594 sec
+
+
+================================================================================
+Synchronize ClickHouse replicas
+================================================================================
+group2-ch-s1-r1 / orders_analytics_local: code=0, result=synchronized
+group2-ch-s1-r1 / category_revenue_local: code=0, result=synchronized
+group2-ch-s1-r1 / daily_orders_local: code=0, result=synchronized
+group2-ch-s1-r2 / orders_analytics_local: code=0, result=synchronized
+group2-ch-s1-r2 / category_revenue_local: code=0, result=synchronized
+group2-ch-s1-r2 / daily_orders_local: code=0, result=synchronized
+group2-ch-s2-r1 / orders_analytics_local: code=0, result=synchronized
+group2-ch-s2-r1 / category_revenue_local: code=0, result=synchronized
+group2-ch-s2-r1 / daily_orders_local: code=0, result=synchronized
+group2-ch-s2-r2 / orders_analytics_local: code=0, result=synchronized
+group2-ch-s2-r2 / category_revenue_local: code=0, result=synchronized
+group2-ch-s2-r2 / daily_orders_local: code=0, result=synchronized
+
+
+================================================================================
+ClickHouse distributed count
+================================================================================
+analytics_rows	unique_orders
+1000002	500001
+
+
+================================================================================
+Local data distribution
+================================================================================
+[group2-ch-s1-r1] code=0
+node	rows	unique_orders	revenue
+ch-s1-r1	499542	249771	951548180.25
+
+[group2-ch-s1-r2] code=0
+node	rows	unique_orders	revenue
+ch-s1-r2	499542	249771	951548180.25
+
+[group2-ch-s2-r1] code=0
+node	rows	unique_orders	revenue
+ch-s2-r1	500460	250230	952826906.25
+
+[group2-ch-s2-r2] code=0
+node	rows	unique_orders	revenue
+ch-s2-r2	500460	250230	952826906.25
+
+
+
+================================================================================
+Replication status
+================================================================================
+[group2-ch-s1-r1] code=0
+node	table	replica_name	total_replicas	active_replicas	queue_size	absolute_delay
+ch-s1-r1	category_revenue_local	s1r1	2	2	0	0
+ch-s1-r1	daily_orders_local	s1r1	2	2	0	0
+ch-s1-r1	orders_analytics_local	s1r1	2	2	0	0
+
+[group2-ch-s1-r2] code=0
+node	table	replica_name	total_replicas	active_replicas	queue_size	absolute_delay
+ch-s1-r2	category_revenue_local	s1r2	2	2	0	0
+ch-s1-r2	daily_orders_local	s1r2	2	2	0	0
+ch-s1-r2	orders_analytics_local	s1r2	2	2	0	0
+
+[group2-ch-s2-r1] code=0
+node	table	replica_name	total_replicas	active_replicas	queue_size	absolute_delay
+ch-s2-r1	category_revenue_local	s2r1	2	2	0	0
+ch-s2-r1	daily_orders_local	s2r1	2	2	0	0
+ch-s2-r1	orders_analytics_local	s2r1	2	2	0	0
+
+[group2-ch-s2-r2] code=0
+node	table	replica_name	total_replicas	active_replicas	queue_size	absolute_delay
+ch-s2-r2	category_revenue_local	s2r2	2	2	0	0
+ch-s2-r2	daily_orders_local	s2r2	2	2	0	0
+ch-s2-r2	orders_analytics_local	s2r2	2	2	0	0
+
+
+Expected source rows: 1000002
